@@ -1,0 +1,15 @@
+[settings]
+experimental = true
+quiet = true
+task_output = "interleave"
+
+[tools]
+usage = "latest"
+bats = "1.13.0"
+gum = "latest"
+
+[_.codebase]
+lint = ["mise-settings", "gum-table"]
+
+[_.codebase.scope]
+gum-table = ".mise/tasks"

@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+#MISE description="Export a public key (armored)"
+#USAGE arg "<identifier>" help="Email, fingerprint, or key ID"
+set -euo pipefail
+
+source "$MISE_CONFIG_ROOT/lib/common.sh"
+require_gpg
+
+fingerprint=$(resolve_key "$usage_identifier")
+gpg --batch --armor --export "$fingerprint"

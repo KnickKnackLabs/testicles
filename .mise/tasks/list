@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+#MISE description="List known keys in the local keyring"
+#USAGE flag "--json" help="Output as JSON"
+set -euo pipefail
+
+source "$MISE_CONFIG_ROOT/lib/common.sh"
+require_gpg
+
+if [ "${usage_json:-}" = "true" ]; then
+  keys=()
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    type=$(echo "$line" | awk -F: '{ print $1 }')
+    case "$type" in
+      pub)
+        trust=$(echo "$line" | awk -F: '{ print $2 }')
+        bits=$(echo "$line" | awk -F: '{ print $3 }')
+        algo=$(echo "$line" | awk -F: '{ print $4 }')
+        created=$(echo "$line" | awk -F: '{ print $6 }')
+        expires=$(echo "$line" | awk -F: '{ print $7 }')
+        ;;
+      fpr)
+        fingerprint=$(echo "$line" | awk -F: '{ print $10 }')
+        ;;
+      uid)
+        uid=$(echo "$line" | awk -F: '{ print $10 }')
+        keys+=("{\"fingerprint\":\"$fingerprint\",\"uid\":\"$uid\",\"trust\":\"$trust\",\"bits\":\"$bits\",\"algo\":\"$algo\",\"created\":\"$created\",\"expires\":\"$expires\"}")
+        ;;
+    esac
+  done < <(gpg --batch --with-colons --list-keys 2>/dev/null)
+
+  # Join array into JSON array
+  printf '['
+  for i in "${!keys[@]}"; do
+    [ "$i" -gt 0 ] && printf ','
+    printf '%s' "${keys[$i]}"
+  done
+  printf ']\n'
+else
+  # Human-friendly table output via gum
+  rows=()
+  current_fpr=""
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    type=$(echo "$line" | awk -F: '{ print $1 }')
+    case "$type" in
+      fpr)
+        current_fpr=$(echo "$line" | awk -F: '{ print $10 }')
+        ;;
+      uid)
+        uid=$(echo "$line" | awk -F: '{ print $10 }')
+        short_fpr="${current_fpr: -16}"
+        rows+=("$short_fpr"$'\t'"$uid")
+        ;;
+    esac
+  done < <(gpg --batch --with-colons --list-keys 2>/dev/null)
+
+  if [ ${#rows[@]} -eq 0 ]; then
+    echo "No keys found in keyring."
+    exit 0
+  fi
+
+  header="Key ID"$'\t'"UID"
+  output=$(printf '%s\n' "$header" "${rows[@]}")
+  echo "$output" | gum table --separator $'\t'
+fi

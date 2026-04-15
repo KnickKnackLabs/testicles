@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+#MISE description="Import an armored public key"
+#USAGE arg "[file]" help="Key file to import (reads stdin if omitted)"
+set -euo pipefail
+
+source "$MISE_CONFIG_ROOT/lib/common.sh"
+require_gpg
+
+if [ -n "${usage_file:-}" ]; then
+  if [ ! -f "$usage_file" ]; then
+    echo "Error: file not found: $usage_file" >&2
+    exit 1
+  fi
+  result=$(gpg --batch --import "$usage_file" 2>&1)
+else
+  result=$(gpg --batch --import 2>&1)
+fi
+
+# Parse gpg import output for key details
+imported_fpr=$(echo "$result" | grep -oE '[A-F0-9]{40}' | head -1)
+
+if [ -n "$imported_fpr" ]; then
+  uid=$(gpg --batch --with-colons --list-keys "$imported_fpr" 2>/dev/null \
+    | awk -F: '/^uid:/ { print $10; exit }')
+  echo "Imported: $uid"
+  echo "Fingerprint: $(format_fingerprint "$imported_fpr")"
+else
+  echo "$result"
+fi
