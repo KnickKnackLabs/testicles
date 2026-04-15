@@ -57,7 +57,13 @@ resolve_key() {
   count=$(echo "$fingerprints" | wc -l | tr -d ' ')
 
   if [ "$count" -gt 1 ]; then
-    echo "Error: multiple keys match '$identifier' — use a fingerprint to be specific" >&2
+    echo "Error: multiple keys match '$identifier' — use a fingerprint to be specific:" >&2
+    while IFS= read -r fpr; do
+      local uid
+      uid=$(gpg --batch --with-colons --list-keys "$fpr" 2>/dev/null \
+        | awk -F: '/^uid:/ { print $10; exit }')
+      echo "  $fpr  $uid" >&2
+    done <<< "$fingerprints"
     return 1
   fi
 
