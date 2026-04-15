@@ -87,9 +87,15 @@ while IFS= read -r line; do
       parse_uid "$uid"
 
       if [ "${usage_json:-}" = "true" ]; then
-        # Escape double quotes in name for JSON safety
-        json_name=$(echo "$PARSED_NAME" | sed 's/"/\\"/g')
-        keys+=("{\"fingerprint\":\"$fingerprint\",\"name\":\"$json_name\",\"email\":\"$PARSED_EMAIL\",\"secret\":$( [ -n "$has_secret" ] && echo "true" || echo "false"),\"created\":\"$created\",\"expires\":\"$expires\"}")
+        is_secret=$( [ -n "$has_secret" ] && echo "true" || echo "false")
+        keys+=("$(jq -n \
+          --arg fpr "$fingerprint" \
+          --arg name "$PARSED_NAME" \
+          --arg email "$PARSED_EMAIL" \
+          --argjson secret "$is_secret" \
+          --arg created "$created" \
+          --arg expires "$expires" \
+          '{fingerprint: $fpr, name: $name, email: $email, secret: $secret, created: $created, expires: $expires}')")
       else
         keys+=("$short_fpr"$'\t'"$PARSED_NAME"$'\t'"$PARSED_EMAIL"$'\t'"$secret_display"$'\t'"$created"$'\t'"$expires")
       fi
@@ -98,12 +104,11 @@ while IFS= read -r line; do
 done < <(gpg --batch --with-colons --list-keys 2>/dev/null)
 
 if [ "${usage_json:-}" = "true" ]; then
-  printf '['
-  for i in "${!keys[@]}"; do
-    [ "$i" -gt 0 ] && printf ','
-    printf '%s' "${keys[$i]}"
-  done
-  printf ']\n'
+  if [ ${#keys[@]} -eq 0 ]; then
+    echo '[]'
+  else
+    printf '%s\n' "${keys[@]}" | jq -s '.'
+  fi
 else
   if [ ${#keys[@]} -eq 0 ]; then
     echo "No keys found."
