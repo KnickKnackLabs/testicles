@@ -16,14 +16,20 @@ else
   result=$(gpg --batch --import 2>&1)
 fi
 
-# Parse gpg import output for key details
-imported_fpr=$(echo "$result" | grep -oE '[A-F0-9]{40}' | head -1)
+# GPG import output has lines like: "gpg: key E59C5ABF6F289466: public key ..."
+# Extract the key ID (16 hex chars after "key ")
+imported_keyid=$(echo "$result" | grep -oE 'key [A-Fa-f0-9]{16}' | head -1 | awk '{ print $2 }')
 
-if [ -n "$imported_fpr" ]; then
-  uid=$(gpg --batch --with-colons --list-keys "$imported_fpr" 2>/dev/null \
-    | awk -F: '/^uid:/ { print $10; exit }')
-  echo "Imported: $uid"
-  echo "Fingerprint: $(format_fingerprint "$imported_fpr")"
-else
-  echo "$result"
+if [ -z "$imported_keyid" ]; then
+  echo "Error: could not parse key ID from gpg output:" >&2
+  echo "$result" >&2
+  exit 1
 fi
+
+# Look up full details from the keyring
+imported_fpr=$(resolve_key "$imported_keyid")
+uid=$(gpg --batch --with-colons --list-keys "$imported_keyid" 2>/dev/null \
+  | awk -F: '/^uid:/ { print $10; exit }')
+
+echo "Imported: $uid"
+echo "Fingerprint: $(format_fingerprint "$imported_fpr")"

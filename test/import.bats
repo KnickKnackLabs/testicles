@@ -11,7 +11,7 @@ setup() {
   export_test_key "alice@example.com" "$BATS_TEST_TMPDIR/alice.asc"
 
   # Delete from keyring, then reimport
-  gpg --batch --yes --delete-keys "$fpr" 2>/dev/null
+  gpg --batch --yes --delete-secret-and-public-key "$fpr" 2>/dev/null
 
   run keys import "$BATS_TEST_TMPDIR/alice.asc"
   [ "$status" -eq 0 ]
@@ -26,7 +26,7 @@ setup() {
 @test "import from stdin" {
   fpr=$(generate_test_key "Bob" "bob@example.com")
   export_test_key "bob@example.com" "$BATS_TEST_TMPDIR/bob.asc"
-  gpg --batch --yes --delete-keys "$fpr" 2>/dev/null
+  gpg --batch --yes --delete-secret-and-public-key "$fpr" 2>/dev/null
 
   run bash -c 'keys import < "$BATS_TEST_TMPDIR/bob.asc"'
   [ "$status" -eq 0 ]

@@ -24,8 +24,9 @@ resolve_key() {
   local identifier="$1"
   local fingerprints
 
+  # Only grab the primary key fingerprint (first fpr after each pub line)
   fingerprints=$(gpg --batch --with-colons --list-keys "$identifier" 2>/dev/null \
-    | awk -F: '/^fpr:/ { print $10 }')
+    | awk -F: '/^pub:/ { getfpr=1; next } /^fpr:/ && getfpr { print $10; getfpr=0 }')
 
   if [ -z "$fingerprints" ]; then
     echo "Error: no key found for '$identifier'" >&2

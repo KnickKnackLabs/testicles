@@ -62,5 +62,5 @@ else
 
   header="Key ID"$'\t'"UID"
   output=$(printf '%s\n' "$header" "${rows[@]}")
-  echo "$output" | gum table --separator $'\t'
+  echo "$output" | gum table -s $'\t' -p
 fi
