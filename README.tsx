@@ -97,12 +97,15 @@ const readme = (
   <>
     <Center>
       <Raw>{`<pre>\n` +
-`  ┌──────────────────────────────────────┐\n` +
-`  │  keys inspect baby-joel@ricon.family │\n` +
-`  │                                      │\n` +
-`  │  ✓ Certified by: Zeke               │\n` +
-`  │  ✓ Certified by: Or Ricon            │\n` +
-`  └──────────────────────────────────────┘\n` +
+`        ╭─────╮\n` +
+`      ╭─┴─╮ ╭─┴─╮\n` +
+`      │   │ │   │\n` +
+`      ╰───╯ ╰───╯\n` +
+`\n` +
+`  testicles inspect baby-joel@ricon.family\n` +
+`\n` +
+`  ✓ Certified by: Zeke\n` +
+`  ✓ Certified by: Or Ricon\n` +
 `</pre>\n\n`}</Raw>
 
       <Heading level={1}>testicles</Heading>
@@ -196,7 +199,7 @@ keys decrypt --file message.asc`}</CodeBlock>
       {implemented.map((cmd) => (
         <>
           <Paragraph>
-            <Code>{`keys ${cmd.name}`}</Code>
+            <Code>{`testicles ${cmd.name}`}</Code>
             {` — ${cmd.description}`}
           </Paragraph>
         </>
@@ -210,7 +213,7 @@ keys decrypt --file message.asc`}</CodeBlock>
     </Section>
 
     <Section title="Library architecture">
-      <CodeBlock>{`keys/
+      <CodeBlock>{`testicles/
 ├── lib/
 │   └── common.sh          # Query API + formatting (${libFunctions} functions)
 ├── .mise/tasks/

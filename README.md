@@ -1,12 +1,15 @@
 <div align="center">
 
 <pre>
-  ┌──────────────────────────────────────┐
-  │  keys inspect baby-joel@ricon.family │
-  │                                      │
-  │  ✓ Certified by: Zeke               │
-  │  ✓ Certified by: Or Ricon            │
-  └──────────────────────────────────────┘
+        ╭─────╮
+      ╭─┴─╮ ╭─┴─╮
+      │   │ │   │
+      ╰───╯ ╰───╯
+
+  testicles inspect baby-joel@ricon.family
+
+  ✓ Certified by: Zeke
+  ✓ Certified by: Or Ricon
 </pre>
 
 # testicles
@@ -72,30 +75,30 @@ The query API in `lib/common.sh` (14 functions) does the heavy lifting: `query_k
 
 ## Commands
 
-`keys decrypt` — Decrypt with local key
+`testicles decrypt` — Decrypt with local key
 
-`keys encrypt` — Encrypt to recipient(s)
+`testicles encrypt` — Encrypt to recipient(s)
 
-`keys export` — Export a public key (armored)
+`testicles export` — Export a public key (armored)
 
-`keys import` — Import an armored public key
+`testicles import` — Import an armored public key
 
-`keys inspect` — Show key details and certifications
+`testicles inspect` — Show key details and certifications
 
-`keys list` — List known keys in the local keyring
+`testicles list` — List known keys in the local keyring
 
-`keys remove` — Remove a key from the local keyring
+`testicles remove` — Remove a key from the local keyring
 
-`keys sign` — Sign content (file or message)
+`testicles sign` — Sign content (file or message)
 
-`keys verify` — Verify a content signature
+`testicles verify` — Verify a content signature
 
 _Planned: broadcast, certify, fetch — stubs exist, implementation coming._
 
 ## Library architecture
 
 ```
-keys/
+testicles/
 ├── lib/
 │   └── common.sh          # Query API + formatting (14 functions)
 ├── .mise/tasks/
