@@ -81,7 +81,7 @@ const libFunctions = [...libSrc.matchAll(/^(\w+)\(\)/gm)].length;
 
 const trustChain = [
   "        ┌───────────┐",
-  "        │  Or Ricon  │   root of trust",
+  "        │ Or Ricon  │   root of trust",
   "        └─────┬─────┘",
   "              │",
   "        ┌─────┴─────┐",

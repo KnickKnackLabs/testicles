@@ -55,7 +55,7 @@ GPG keys are only useful if you can verify who owns them. We use **key certifica
 
 ```
         ┌───────────┐
-        │  Or Ricon  │   root of trust
+        │ Or Ricon  │   root of trust
         └─────┬─────┘
               │
         ┌─────┴─────┐
