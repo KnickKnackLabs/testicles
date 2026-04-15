@@ -21,15 +21,21 @@ if [ -n "${usage_sig:-}" ]; then
     echo "Error: file not found: $usage_file"
     exit 1
   fi
-  result=$(gpg --batch --verify "$usage_sig" "$usage_file" 2>&1) || true
+  if ! result=$(gpg --batch --verify "$usage_sig" "$usage_file" 2>&1); then
+    : # non-zero expected for bad/unknown sigs — result is parsed below
+  fi
 elif [ -n "${usage_file:-}" ]; then
   if [ ! -f "$usage_file" ]; then
-    echo "Error: file not found: $usage_file" >&2
+    echo "Error: file not found: $usage_file"
     exit 1
   fi
-  result=$(gpg --batch --verify "$usage_file" 2>&1) || true
+  if ! result=$(gpg --batch --verify "$usage_file" 2>&1); then
+    :
+  fi
 else
-  result=$(gpg --batch --verify 2>&1) || true
+  if ! result=$(gpg --batch --verify 2>&1); then
+    :
+  fi
 fi
 
 # Parse verification result
