@@ -1,6 +1,47 @@
 #!/usr/bin/env bash
 #MISE description="Verify a content signature"
+#USAGE flag "--sig <sig>" help="Detached signature file"
+#USAGE flag "--file <file>" help="Signed file or message (reads stdin if omitted)"
 set -euo pipefail
 
-echo "Error: not implemented" >&2
-exit 1
+source "$MISE_CONFIG_ROOT/lib/common.sh"
+require_gpg
+
+if [ -n "${usage_sig:-}" ]; then
+  # Detached signature verification
+  if [ ! -f "$usage_sig" ]; then
+    echo "Error: signature file not found: $usage_sig"
+    exit 1
+  fi
+  if [ -z "${usage_file:-}" ]; then
+    echo "Error: --file is required with --sig for detached signature verification"
+    exit 1
+  fi
+  if [ ! -f "$usage_file" ]; then
+    echo "Error: file not found: $usage_file"
+    exit 1
+  fi
+  result=$(gpg --batch --verify "$usage_sig" "$usage_file" 2>&1) || true
+elif [ -n "${usage_file:-}" ]; then
+  if [ ! -f "$usage_file" ]; then
+    echo "Error: file not found: $usage_file" >&2
+    exit 1
+  fi
+  result=$(gpg --batch --verify "$usage_file" 2>&1) || true
+else
+  result=$(gpg --batch --verify 2>&1) || true
+fi
+
+# Parse verification result
+if echo "$result" | grep -q "Good signature"; then
+  signer=$(echo "$result" | grep "Good signature" | sed 's/.*Good signature from "\(.*\)".*/\1/')
+  echo "✓ Valid signature from: $signer"
+elif echo "$result" | grep -q "BAD signature"; then
+  signer=$(echo "$result" | grep "BAD signature" | sed 's/.*BAD signature from "\(.*\)".*/\1/')
+  echo "✗ BAD signature from: $signer"
+  exit 1
+else
+  echo "Error: could not verify signature"
+  echo "$result"
+  exit 1
+fi

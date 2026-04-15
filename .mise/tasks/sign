@@ -1,6 +1,40 @@
 #!/usr/bin/env bash
 #MISE description="Sign content (file or message)"
+#USAGE flag "--key <key>" help="Key to sign with (defaults to default key)"
+#USAGE flag "--clear" help="Produce cleartext signature (message remains readable)"
+#USAGE flag "--detach" help="Produce detached signature (.sig file)"
+#USAGE flag "--file <file>" help="File to sign (reads stdin if omitted)"
+#USAGE arg "[message]" help="Message to sign (alternative to stdin/file)"
 set -euo pipefail
 
-echo "Error: not implemented" >&2
-exit 1
+source "$MISE_CONFIG_ROOT/lib/common.sh"
+require_gpg
+
+# Build gpg args
+gpg_args=(--batch --armor --pinentry-mode loopback --passphrase '')
+
+if [ -n "${usage_key:-}" ]; then
+  fpr=$(resolve_key "$usage_key")
+  gpg_args+=(--local-user "$fpr")
+fi
+
+if [ "${usage_clear:-}" = "true" ]; then
+  gpg_args+=(--clear-sign)
+elif [ "${usage_detach:-}" = "true" ]; then
+  gpg_args+=(--detach-sign)
+else
+  gpg_args+=(--sign)
+fi
+
+# Determine input source
+if [ -n "${usage_file:-}" ]; then
+  if [ ! -f "$usage_file" ]; then
+    echo "Error: file not found: $usage_file" >&2
+    exit 1
+  fi
+  gpg "${gpg_args[@]}" < "$usage_file"
+elif [ -n "${usage_message:-}" ]; then
+  echo "$usage_message" | gpg "${gpg_args[@]}"
+else
+  gpg "${gpg_args[@]}"
+fi

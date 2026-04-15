@@ -1,6 +1,17 @@
 #!/usr/bin/env bash
 #MISE description="Decrypt with local key"
+#USAGE flag "--file <file>" help="File to decrypt (reads stdin if omitted)"
 set -euo pipefail
 
-echo "Error: not implemented" >&2
-exit 1
+source "$MISE_CONFIG_ROOT/lib/common.sh"
+require_gpg
+
+if [ -n "${usage_file:-}" ]; then
+  if [ ! -f "$usage_file" ]; then
+    echo "Error: file not found: $usage_file" >&2
+    exit 1
+  fi
+  gpg --batch --pinentry-mode loopback --passphrase '' --decrypt "$usage_file" 2>/dev/null
+else
+  gpg --batch --pinentry-mode loopback --passphrase '' --decrypt 2>/dev/null
+fi

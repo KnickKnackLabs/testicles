@@ -1,6 +1,37 @@
 #!/usr/bin/env bash
 #MISE description="Encrypt to recipient(s)"
+#USAGE flag "--to <to>" var=#true help="Recipient email, fingerprint, or key ID (repeatable)"
+#USAGE flag "--file <file>" help="File to encrypt (reads stdin if omitted)"
+#USAGE arg "[message]" help="Message to encrypt (alternative to stdin/file)"
 set -euo pipefail
 
-echo "Error: not implemented" >&2
-exit 1
+source "$MISE_CONFIG_ROOT/lib/common.sh"
+require_gpg
+
+# Parse recipients from variadic --to flag
+RECIPIENTS=()
+if [ -n "${usage_to:-}" ]; then
+  while IFS= read -r recip; do
+    [ -z "$recip" ] && continue
+    fpr=$(resolve_key "$recip")
+    RECIPIENTS+=("--recipient" "$fpr")
+  done < <(printf '%s' "${usage_to}" | xargs printf '%s\n')
+fi
+
+if [ ${#RECIPIENTS[@]} -eq 0 ]; then
+  echo "Error: at least one --to recipient is required" >&2
+  exit 1
+fi
+
+# Determine input source
+if [ -n "${usage_file:-}" ]; then
+  if [ ! -f "$usage_file" ]; then
+    echo "Error: file not found: $usage_file" >&2
+    exit 1
+  fi
+  gpg --batch --armor --trust-model always --encrypt "${RECIPIENTS[@]}" < "$usage_file"
+elif [ -n "${usage_message:-}" ]; then
+  echo "$usage_message" | gpg --batch --armor --trust-model always --encrypt "${RECIPIENTS[@]}"
+else
+  gpg --batch --armor --trust-model always --encrypt "${RECIPIENTS[@]}"
+fi
