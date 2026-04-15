@@ -1,35 +1,98 @@
 #!/usr/bin/env bash
 #MISE description="List known keys in the local keyring"
 #USAGE flag "--json" help="Output as JSON"
+#USAGE flag "--secret" help="Only keys with a private key available"
+#USAGE flag "--public" help="Only keys without a private key"
+#USAGE arg "[pattern]" help="Filter by UID (name, email, domain)"
 set -euo pipefail
 
 source "$MISE_CONFIG_ROOT/lib/common.sh"
 require_gpg
 
-if [ "${usage_json:-}" = "true" ]; then
-  keys=()
-  while IFS= read -r line; do
-    [ -z "$line" ] && continue
-    type=$(echo "$line" | awk -F: '{ print $1 }')
-    case "$type" in
-      pub)
-        trust=$(echo "$line" | awk -F: '{ print $2 }')
-        bits=$(echo "$line" | awk -F: '{ print $3 }')
-        algo=$(echo "$line" | awk -F: '{ print $4 }')
-        created=$(echo "$line" | awk -F: '{ print $6 }')
-        expires=$(echo "$line" | awk -F: '{ print $7 }')
-        ;;
-      fpr)
-        fingerprint=$(echo "$line" | awk -F: '{ print $10 }')
-        ;;
-      uid)
-        uid=$(echo "$line" | awk -F: '{ print $10 }')
-        keys+=("{\"fingerprint\":\"$fingerprint\",\"uid\":\"$uid\",\"trust\":\"$trust\",\"bits\":\"$bits\",\"algo\":\"$algo\",\"created\":\"$created\",\"expires\":\"$expires\"}")
-        ;;
-    esac
-  done < <(gpg --batch --with-colons --list-keys 2>/dev/null)
+# Build a newline-separated list of fingerprints that have secret keys
+secret_fprs=""
+while IFS= read -r line; do
+  [ -z "$line" ] && continue
+  type=$(echo "$line" | awk -F: '{ print $1 }')
+  if [ "$type" = "sec" ]; then
+    get_fpr=true
+  elif [ "$type" = "fpr" ] && [ "${get_fpr:-}" = "true" ]; then
+    fpr=$(echo "$line" | awk -F: '{ print $10 }')
+    secret_fprs="$secret_fprs$fpr
+"
+    get_fpr=false
+  fi
+done < <(gpg --batch --with-colons --list-secret-keys 2>/dev/null || true)
 
-  # Join array into JSON array
+# Parse all public keys
+keys=()
+while IFS= read -r line; do
+  [ -z "$line" ] && continue
+  type=$(echo "$line" | awk -F: '{ print $1 }')
+  case "$type" in
+    pub)
+      created_ts=$(echo "$line" | awk -F: '{ print $6 }')
+      expires_ts=$(echo "$line" | awk -F: '{ print $7 }')
+      get_fpr=true
+      ;;
+    fpr)
+      if [ "${get_fpr:-}" = "true" ]; then
+        fingerprint=$(echo "$line" | awk -F: '{ print $10 }')
+        get_fpr=false
+      fi
+      ;;
+    uid)
+      uid=$(echo "$line" | awk -F: '{ print $10 }')
+
+      # Pattern filter
+      if [ -n "${usage_pattern:-}" ]; then
+        if ! echo "$uid" | grep -qi "$usage_pattern"; then
+          continue
+        fi
+      fi
+
+      # Determine if secret key exists
+      has_secret=""
+      if echo "$secret_fprs" | grep -q "^${fingerprint}$"; then
+        has_secret="true"
+      fi
+
+      # Secret/public filter
+      if [ "${usage_secret:-}" = "true" ] && [ -z "$has_secret" ]; then
+        continue
+      fi
+      if [ "${usage_public:-}" = "true" ] && [ -n "$has_secret" ]; then
+        continue
+      fi
+
+      # Format dates
+      if [ -n "$created_ts" ] && [ "$created_ts" != "0" ]; then
+        created=$(date -r "$created_ts" "+%Y-%m-%d" 2>/dev/null || date -d "@$created_ts" "+%Y-%m-%d" 2>/dev/null || echo "unknown")
+      else
+        created="unknown"
+      fi
+      if [ -n "$expires_ts" ] && [ "$expires_ts" != "0" ]; then
+        expires=$(date -r "$expires_ts" "+%Y-%m-%d" 2>/dev/null || date -d "@$expires_ts" "+%Y-%m-%d" 2>/dev/null || echo "unknown")
+      else
+        expires="never"
+      fi
+
+      short_fpr="${fingerprint: -16}"
+      secret_display=""
+      if [ -n "$has_secret" ]; then
+        secret_display="✓"
+      fi
+
+      if [ "${usage_json:-}" = "true" ]; then
+        keys+=("{\"fingerprint\":\"$fingerprint\",\"uid\":\"$uid\",\"secret\":$( [ -n "$has_secret" ] && echo "true" || echo "false"),\"created\":\"$created\",\"expires\":\"$expires\"}")
+      else
+        keys+=("$short_fpr"$'\t'"$uid"$'\t'"$secret_display"$'\t'"$created"$'\t'"$expires")
+      fi
+      ;;
+  esac
+done < <(gpg --batch --with-colons --list-keys 2>/dev/null)
+
+if [ "${usage_json:-}" = "true" ]; then
   printf '['
   for i in "${!keys[@]}"; do
     [ "$i" -gt 0 ] && printf ','
@@ -37,30 +100,12 @@ if [ "${usage_json:-}" = "true" ]; then
   done
   printf ']\n'
 else
-  # Human-friendly table output via gum
-  rows=()
-  current_fpr=""
-  while IFS= read -r line; do
-    [ -z "$line" ] && continue
-    type=$(echo "$line" | awk -F: '{ print $1 }')
-    case "$type" in
-      fpr)
-        current_fpr=$(echo "$line" | awk -F: '{ print $10 }')
-        ;;
-      uid)
-        uid=$(echo "$line" | awk -F: '{ print $10 }')
-        short_fpr="${current_fpr: -16}"
-        rows+=("$short_fpr"$'\t'"$uid")
-        ;;
-    esac
-  done < <(gpg --batch --with-colons --list-keys 2>/dev/null)
-
-  if [ ${#rows[@]} -eq 0 ]; then
-    echo "No keys found in keyring."
+  if [ ${#keys[@]} -eq 0 ]; then
+    echo "No keys found."
     exit 0
   fi
 
-  header="Key ID"$'\t'"UID"
-  output=$(printf '%s\n' "$header" "${rows[@]}")
+  header="Key ID"$'\t'"UID"$'\t'"Secret"$'\t'"Created"$'\t'"Expires"
+  output=$(printf '%s\n' "$header" "${keys[@]}")
   echo "$output" | gum table -s $'\t' -p
 fi

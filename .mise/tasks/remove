@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+#MISE description="Remove a key from the local keyring"
+#USAGE arg "<identifier>" help="Email, fingerprint, or key ID"
+#USAGE flag "--yes" help="Skip confirmation"
+set -euo pipefail
+
+source "$MISE_CONFIG_ROOT/lib/common.sh"
+require_gpg
+
+fingerprint=$(resolve_key "$usage_identifier")
+
+# Show what we're about to remove
+uid=$(gpg --batch --with-colons --list-keys "$fingerprint" 2>/dev/null \
+  | awk -F: '/^uid:/ { print $10; exit }')
+
+echo "Key: $uid"
+echo "Fingerprint: $(format_fingerprint "$fingerprint")"
+
+# Check if this key has a secret key
+has_secret=""
+if gpg --batch --with-colons --list-secret-keys "$fingerprint" &>/dev/null; then
+  secret_count=$(gpg --batch --with-colons --list-secret-keys "$fingerprint" 2>/dev/null \
+    | grep -c '^sec:' || true)
+  if [ "$secret_count" -gt 0 ]; then
+    has_secret="true"
+  fi
+fi
+
+if [ -n "$has_secret" ]; then
+  echo ""
+  echo "WARNING: This key has a private key. Removing it will delete both the public and private key." >&2
+fi
+
+# Confirm
+if [ "${usage_yes:-}" != "true" ]; then
+  if ! gum confirm "Remove this key?"; then
+    echo "Aborted."
+    exit 1
+  fi
+fi
+
+if [ -n "$has_secret" ]; then
+  gpg --batch --yes --delete-secret-and-public-key "$fingerprint" 2>/dev/null
+else
+  gpg --batch --yes --delete-keys "$fingerprint" 2>/dev/null
+fi
+
+echo "Removed."

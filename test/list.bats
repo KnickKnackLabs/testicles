@@ -29,20 +29,118 @@ setup() {
   [[ "$output" == *"bob@example.com"* ]]
 }
 
-@test "list --json returns valid JSON array" {
+@test "list shows Secret column with checkmark for own keys" {
+  generate_test_key "Alice" "alice@example.com"
+
+  run keys list
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Secret"* ]]
+  [[ "$output" == *"✓"* ]]
+}
+
+@test "list shows Created and Expires columns" {
+  generate_test_key "Alice" "alice@example.com"
+
+  run keys list
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Created"* ]]
+  [[ "$output" == *"Expires"* ]]
+  [[ "$output" == *"never"* ]]
+}
+
+# -- Filtering --
+
+@test "list filters by pattern" {
+  generate_test_key "Alice" "alice@example.com"
+  generate_test_key "Bob" "bob@other.org"
+
+  run keys list "alice"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"alice@example.com"* ]]
+  [[ "$output" != *"bob@other.org"* ]]
+}
+
+@test "list filters by domain" {
+  generate_test_key "Alice" "alice@example.com"
+  generate_test_key "Bob" "bob@other.org"
+
+  run keys list "other.org"
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"alice@example.com"* ]]
+  [[ "$output" == *"bob@other.org"* ]]
+}
+
+@test "list pattern filter is case-insensitive" {
+  generate_test_key "Alice" "alice@example.com"
+
+  run keys list "ALICE"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"alice@example.com"* ]]
+}
+
+@test "list pattern with no matches shows no keys" {
+  generate_test_key "Alice" "alice@example.com"
+
+  run keys list "nobody"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"No keys found"* ]]
+}
+
+# -- Secret/Public filters --
+
+@test "list --secret shows only keys with private key" {
+  generate_test_key "Alice" "alice@example.com"
+  # Import a public-only key
+  local other_home
+  other_home=$(mktemp -d)
+  chmod 700 "$other_home"
+  GNUPGHOME="$other_home" gpg --batch --pinentry-mode loopback --passphrase '' \
+    --quick-gen-key "External <ext@example.com>" default default never 2>/dev/null
+  GNUPGHOME="$other_home" gpg --batch --armor --export "ext@example.com" \
+    | gpg --batch --import 2>/dev/null
+
+  run keys list --secret
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"alice@example.com"* ]]
+  [[ "$output" != *"ext@example.com"* ]]
+}
+
+@test "list --public shows only keys without private key" {
+  generate_test_key "Alice" "alice@example.com"
+  local other_home
+  other_home=$(mktemp -d)
+  chmod 700 "$other_home"
+  GNUPGHOME="$other_home" gpg --batch --pinentry-mode loopback --passphrase '' \
+    --quick-gen-key "External <ext@example.com>" default default never 2>/dev/null
+  GNUPGHOME="$other_home" gpg --batch --armor --export "ext@example.com" \
+    | gpg --batch --import 2>/dev/null
+
+  run keys list --public
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"alice@example.com"* ]]
+  [[ "$output" == *"ext@example.com"* ]]
+}
+
+# -- JSON --
+
+@test "list --json returns valid JSON with all fields" {
   generate_test_key "Alice" "alice@example.com"
 
   run keys list --json
   [ "$status" -eq 0 ]
-  # Should be parseable JSON with expected fields
   echo "$output" | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
 assert isinstance(data, list), 'expected array'
 assert len(data) == 1, f'expected 1 key, got {len(data)}'
-assert 'fingerprint' in data[0]
-assert 'uid' in data[0]
-assert 'alice@example.com' in data[0]['uid']
+key = data[0]
+assert 'fingerprint' in key
+assert 'uid' in key
+assert 'secret' in key
+assert 'created' in key
+assert 'expires' in key
+assert key['secret'] is True
+assert 'alice@example.com' in key['uid']
 "
 }
 
@@ -53,5 +151,19 @@ assert 'alice@example.com' in data[0]['uid']
 import sys, json
 data = json.load(sys.stdin)
 assert data == [], f'expected empty array, got {data}'
+"
+}
+
+@test "list --json respects pattern filter" {
+  generate_test_key "Alice" "alice@example.com"
+  generate_test_key "Bob" "bob@other.org"
+
+  run keys list --json "alice"
+  [ "$status" -eq 0 ]
+  echo "$output" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+assert len(data) == 1
+assert 'alice@example.com' in data[0]['uid']
 "
 }
