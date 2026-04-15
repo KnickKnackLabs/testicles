@@ -1,6 +1,203 @@
 #!/usr/bin/env bash
 #MISE description="Show key details and certifications"
+#USAGE flag "--json" help="Output as JSON"
+#USAGE arg "<identifier>" help="Email, fingerprint, or key ID"
 set -euo pipefail
 
-echo "Error: not implemented" >&2
-exit 1
+source "$MISE_CONFIG_ROOT/lib/common.sh"
+require_gpg
+
+fingerprint=$(resolve_key "$usage_identifier")
+
+# --- Gather key metadata ---
+
+primary_algo=""
+primary_bits=""
+created_ts=""
+expires_ts=""
+uids=()
+subkeys=()
+certifications=()
+
+current_section=""
+while IFS= read -r line; do
+  [ -z "$line" ] && continue
+  type=$(echo "$line" | awk -F: '{ print $1 }')
+  case "$type" in
+    pub)
+      primary_bits=$(echo "$line" | awk -F: '{ print $3 }')
+      primary_algo_num=$(echo "$line" | awk -F: '{ print $4 }')
+      created_ts=$(echo "$line" | awk -F: '{ print $6 }')
+      expires_ts=$(echo "$line" | awk -F: '{ print $7 }')
+      current_section="pub"
+      ;;
+    uid)
+      uid=$(echo "$line" | awk -F: '{ print $10 }')
+      uids+=("$uid")
+      ;;
+    sub)
+      sub_bits=$(echo "$line" | awk -F: '{ print $3 }')
+      sub_algo_num=$(echo "$line" | awk -F: '{ print $4 }')
+      sub_created_ts=$(echo "$line" | awk -F: '{ print $6 }')
+      sub_expires_ts=$(echo "$line" | awk -F: '{ print $7 }')
+      current_section="sub"
+      ;;
+    fpr)
+      if [ "$current_section" = "sub" ]; then
+        sub_fpr=$(echo "$line" | awk -F: '{ print $10 }')
+        sub_short="${sub_fpr: -16}"
+
+        if [ -n "$sub_created_ts" ] && [ "$sub_created_ts" != "0" ]; then
+          sub_created=$(date -r "$sub_created_ts" "+%Y-%m-%d" 2>/dev/null || date -d "@$sub_created_ts" "+%Y-%m-%d" 2>/dev/null || echo "unknown")
+        else
+          sub_created="unknown"
+        fi
+        if [ -n "$sub_expires_ts" ] && [ "$sub_expires_ts" != "0" ]; then
+          sub_expires=$(date -r "$sub_expires_ts" "+%Y-%m-%d" 2>/dev/null || date -d "@$sub_expires_ts" "+%Y-%m-%d" 2>/dev/null || echo "unknown")
+        else
+          sub_expires="never"
+        fi
+
+        subkeys+=("$sub_short"$'\t'"$sub_bits"$'\t'"$sub_created"$'\t'"$sub_expires")
+        current_section=""
+      fi
+      ;;
+  esac
+done < <(gpg --batch --with-colons --list-keys "$fingerprint" 2>/dev/null)
+
+# --- Gather certifications ---
+# --check-sigs shows sig lines with signer key IDs
+while IFS= read -r line; do
+  [ -z "$line" ] && continue
+  type=$(echo "$line" | awk -F: '{ print $1 }')
+  if [ "$type" = "sig" ]; then
+    sig_keyid=$(echo "$line" | awk -F: '{ print $5 }')
+    sig_ts=$(echo "$line" | awk -F: '{ print $6 }')
+    sig_uid=$(echo "$line" | awk -F: '{ print $10 }')
+
+    # Skip self-signatures
+    if [ "${fingerprint: -16}" = "$sig_keyid" ]; then
+      continue
+    fi
+    # Skip empty UIDs (unknown signer)
+    [ -z "$sig_uid" ] && sig_uid="[unknown key $sig_keyid]"
+
+    if [ -n "$sig_ts" ] && [ "$sig_ts" != "0" ]; then
+      sig_date=$(date -r "$sig_ts" "+%Y-%m-%d" 2>/dev/null || date -d "@$sig_ts" "+%Y-%m-%d" 2>/dev/null || echo "unknown")
+    else
+      sig_date="unknown"
+    fi
+
+    certifications+=("$sig_uid"$'\t'"$sig_date")
+  fi
+done < <(gpg --batch --with-colons --check-sigs "$fingerprint" 2>/dev/null)
+
+# --- Check for secret key ---
+has_secret=""
+secret_count=$(gpg --batch --with-colons --list-secret-keys "$fingerprint" 2>/dev/null \
+  | grep -c '^sec:' || true)
+if [ "$secret_count" -gt 0 ]; then
+  has_secret="true"
+fi
+
+# --- Format dates ---
+if [ -n "$created_ts" ] && [ "$created_ts" != "0" ]; then
+  created=$(date -r "$created_ts" "+%Y-%m-%d" 2>/dev/null || date -d "@$created_ts" "+%Y-%m-%d" 2>/dev/null || echo "unknown")
+else
+  created="unknown"
+fi
+if [ -n "$expires_ts" ] && [ "$expires_ts" != "0" ]; then
+  expires=$(date -r "$expires_ts" "+%Y-%m-%d" 2>/dev/null || date -d "@$expires_ts" "+%Y-%m-%d" 2>/dev/null || echo "unknown")
+else
+  expires="never"
+fi
+
+# --- Output ---
+
+if [ "${usage_json:-}" = "true" ]; then
+  # Build UIDs JSON array
+  uids_json="[]"
+  for uid in ${uids[@]+"${uids[@]}"}; do
+    parse_uid "$uid"
+    uids_json=$(echo "$uids_json" | jq \
+      --arg name "$PARSED_NAME" \
+      --arg email "$PARSED_EMAIL" \
+      '. + [{name: $name, email: $email}]')
+  done
+
+  # Build subkeys JSON array
+  subkeys_json="[]"
+  for sk in ${subkeys[@]+"${subkeys[@]}"}; do
+    sk_id=$(echo "$sk" | cut -f1)
+    sk_bits=$(echo "$sk" | cut -f2)
+    sk_created=$(echo "$sk" | cut -f3)
+    sk_expires=$(echo "$sk" | cut -f4)
+    subkeys_json=$(echo "$subkeys_json" | jq \
+      --arg id "$sk_id" \
+      --arg bits "$sk_bits" \
+      --arg created "$sk_created" \
+      --arg expires "$sk_expires" \
+      '. + [{id: $id, bits: $bits, created: $created, expires: $expires}]')
+  done
+
+  # Build certifications JSON array
+  certs_json="[]"
+  for cert in ${certifications[@]+"${certifications[@]}"}; do
+    cert_signer=$(echo "$cert" | cut -f1)
+    cert_date=$(echo "$cert" | cut -f2)
+    parse_uid "$cert_signer"
+    certs_json=$(echo "$certs_json" | jq \
+      --arg name "$PARSED_NAME" \
+      --arg email "$PARSED_EMAIL" \
+      --arg date "$cert_date" \
+      '. + [{name: $name, email: $email, date: $date}]')
+  done
+
+  is_secret=$( [ -n "$has_secret" ] && echo "true" || echo "false")
+  jq -n \
+    --arg fingerprint "$fingerprint" \
+    --arg bits "$primary_bits" \
+    --argjson secret "$is_secret" \
+    --arg created "$created" \
+    --arg expires "$expires" \
+    --argjson uids "$uids_json" \
+    --argjson subkeys "$subkeys_json" \
+    --argjson certifications "$certs_json" \
+    '{fingerprint: $fingerprint, bits: $bits, secret: $secret, created: $created, expires: $expires, uids: $uids, subkeys: $subkeys, certifications: $certifications}'
+else
+  # Human-readable output
+  secret_display="no"
+  [ -n "$has_secret" ] && secret_display="✓"
+
+  gum style --bold "Key Details"
+  echo "  Fingerprint: $(format_fingerprint "$fingerprint")"
+  echo "  Bits:        $primary_bits"
+  echo "  Created:     $created"
+  echo "  Expires:     $expires"
+  echo "  Secret:      $secret_display"
+
+  echo ""
+  gum style --bold "UIDs"
+  for uid in ${uids[@]+"${uids[@]}"}; do
+    echo "  $uid"
+  done
+
+  if [ ${#subkeys[@]} -gt 0 ]; then
+    echo ""
+    gum style --bold "Subkeys"
+    header="Key ID"$'\t'"Bits"$'\t'"Created"$'\t'"Expires"
+    output=$(printf '%s\n' "$header" "${subkeys[@]}")
+    echo "$output" | gum table -s $'\t' -p
+  fi
+
+  if [ ${#certifications[@]} -gt 0 ]; then
+    echo ""
+    gum style --bold "Certifications"
+    header="Signed by"$'\t'"Date"
+    output=$(printf '%s\n' "$header" "${certifications[@]}")
+    echo "$output" | gum table -s $'\t' -p
+  else
+    echo ""
+    echo "  No certifications from other keys."
+  fi
+fi
