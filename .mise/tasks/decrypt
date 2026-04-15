@@ -6,12 +6,25 @@ set -euo pipefail
 source "$MISE_CONFIG_ROOT/lib/common.sh"
 require_gpg
 
+stderr_file=$(mktemp)
+trap 'rm -f "$stderr_file"' EXIT
+
 if [ -n "${usage_file:-}" ]; then
   if [ ! -f "$usage_file" ]; then
-    echo "Error: file not found: $usage_file" >&2
+    echo "Error: file not found: $usage_file"
     exit 1
   fi
-  gpg --batch --pinentry-mode loopback --passphrase '' --decrypt "$usage_file" 2>/dev/null
+  if ! result=$(gpg --batch --pinentry-mode loopback --passphrase '' --decrypt "$usage_file" 2>"$stderr_file"); then
+    echo "Error: decryption failed"
+    cat "$stderr_file"
+    exit 1
+  fi
 else
-  gpg --batch --pinentry-mode loopback --passphrase '' --decrypt 2>/dev/null
+  if ! result=$(gpg --batch --pinentry-mode loopback --passphrase '' --decrypt 2>"$stderr_file"); then
+    echo "Error: decryption failed"
+    cat "$stderr_file"
+    exit 1
+  fi
 fi
+
+echo "$result"
