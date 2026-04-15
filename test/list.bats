@@ -135,12 +135,14 @@ assert isinstance(data, list), 'expected array'
 assert len(data) == 1, f'expected 1 key, got {len(data)}'
 key = data[0]
 assert 'fingerprint' in key
-assert 'uid' in key
+assert 'name' in key
+assert 'email' in key
 assert 'secret' in key
 assert 'created' in key
 assert 'expires' in key
 assert key['secret'] is True
-assert 'alice@example.com' in key['uid']
+assert key['name'] == 'Alice', f'expected Alice, got {key[\"name\"]}'
+assert key['email'] == 'alice@example.com'
 "
 }
 
@@ -164,6 +166,6 @@ assert data == [], f'expected empty array, got {data}'
 import sys, json
 data = json.load(sys.stdin)
 assert len(data) == 1
-assert 'alice@example.com' in data[0]['uid']
+assert data[0]['email'] == 'alice@example.com'
 "
 }

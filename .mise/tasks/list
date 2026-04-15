@@ -83,10 +83,15 @@ while IFS= read -r line; do
         secret_display="✓"
       fi
 
+      # Parse UID into name and email
+      parse_uid "$uid"
+
       if [ "${usage_json:-}" = "true" ]; then
-        keys+=("{\"fingerprint\":\"$fingerprint\",\"uid\":\"$uid\",\"secret\":$( [ -n "$has_secret" ] && echo "true" || echo "false"),\"created\":\"$created\",\"expires\":\"$expires\"}")
+        # Escape double quotes in name for JSON safety
+        json_name=$(echo "$PARSED_NAME" | sed 's/"/\\"/g')
+        keys+=("{\"fingerprint\":\"$fingerprint\",\"name\":\"$json_name\",\"email\":\"$PARSED_EMAIL\",\"secret\":$( [ -n "$has_secret" ] && echo "true" || echo "false"),\"created\":\"$created\",\"expires\":\"$expires\"}")
       else
-        keys+=("$short_fpr"$'\t'"$uid"$'\t'"$secret_display"$'\t'"$created"$'\t'"$expires")
+        keys+=("$short_fpr"$'\t'"$PARSED_NAME"$'\t'"$PARSED_EMAIL"$'\t'"$secret_display"$'\t'"$created"$'\t'"$expires")
       fi
       ;;
   esac
@@ -105,7 +110,7 @@ else
     exit 0
   fi
 
-  header="Key ID"$'\t'"UID"$'\t'"Secret"$'\t'"Created"$'\t'"Expires"
+  header="Key ID"$'\t'"Name"$'\t'"Email"$'\t'"Secret"$'\t'"Created"$'\t'"Expires"
   output=$(printf '%s\n' "$header" "${keys[@]}")
   echo "$output" | gum table -s $'\t' -p
 fi

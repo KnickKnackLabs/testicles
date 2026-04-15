@@ -18,6 +18,26 @@ format_fingerprint() {
   echo "$fpr" | sed 's/.\{4\}/& /g' | sed 's/ $//'
 }
 
+# Parse a UID into name and email components.
+# Sets PARSED_NAME and PARSED_EMAIL.
+parse_uid() {
+  local uid="$1"
+  PARSED_NAME=""
+  PARSED_EMAIL=""
+
+  if [[ "$uid" == *'<'*'>'* ]]; then
+    # "Name <email>" format
+    PARSED_NAME=$(echo "$uid" | sed 's/ *<.*>$//')
+    PARSED_EMAIL=$(echo "$uid" | sed 's/.*<\(.*\)>/\1/')
+  elif [[ "$uid" == *'@'* ]]; then
+    # Bare email, no angle brackets
+    PARSED_EMAIL="$uid"
+  else
+    # Just a name, no email
+    PARSED_NAME="$uid"
+  fi
+}
+
 # Resolve a key identifier (email, fingerprint, or partial ID) to a fingerprint.
 # Returns the full fingerprint on stdout, exits 1 if not found or ambiguous.
 resolve_key() {
