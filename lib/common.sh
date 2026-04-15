@@ -88,6 +88,17 @@ format_expiry() {
   fi
 }
 
+# Truncate a string to a max length, adding ellipsis if truncated
+truncate_str() {
+  local str="$1"
+  local max="${2:-30}"
+  if [ ${#str} -gt "$max" ]; then
+    echo "${str:0:$((max - 1))}…"
+  else
+    echo "$str"
+  fi
+}
+
 # Format a creation timestamp
 format_created() {
   local created_ts="$1"

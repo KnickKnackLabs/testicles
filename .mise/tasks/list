@@ -60,7 +60,7 @@ while IFS= read -r fpr; do
         --arg expires "$KEY_EXPIRES" \
         '{fingerprint: $fpr, name: $name, email: $email, secret: $secret, created: $created, expires: $expires}')")
     else
-      keys+=("$short_fpr"$'\t'"$PARSED_NAME"$'\t'"$PARSED_EMAIL"$'\t'"$secret_display"$'\t'"$KEY_CREATED"$'\t'"$KEY_EXPIRES")
+      keys+=("$short_fpr"$'\t'"$(truncate_str "$PARSED_NAME" 30)"$'\t'"$PARSED_EMAIL"$'\t'"$secret_display"$'\t'"$KEY_CREATED"$'\t'"$KEY_EXPIRES")
     fi
   done
 done <<< "$fingerprints"
