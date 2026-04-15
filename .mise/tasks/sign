@@ -15,6 +15,11 @@ gpg_args=(--batch --armor --pinentry-mode loopback --passphrase '')
 
 if [ -n "${usage_key:-}" ]; then
   fpr=$(resolve_key "$usage_key")
+  if ! has_secret_key "$fpr"; then
+    query_key_uids "$fpr"
+    echo "Error: no secret key for '${KEY_UIDS[0]:-$usage_key}' — you can only sign with keys you own"
+    exit 1
+  fi
   gpg_args+=(--local-user "$fpr")
 fi
 

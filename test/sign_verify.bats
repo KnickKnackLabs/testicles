@@ -51,6 +51,21 @@ setup() {
   [[ "$output" == *"BEGIN PGP SIGNED MESSAGE"* ]]
 }
 
+@test "sign fails when key has no secret key" {
+  # Import a public-only key
+  local other_home
+  other_home=$(mktemp -d)
+  chmod 700 "$other_home"
+  GNUPGHOME="$other_home" gpg --batch --pinentry-mode loopback --passphrase '' \
+    --quick-gen-key "External <ext@example.com>" default default never 2>/dev/null
+  GNUPGHOME="$other_home" gpg --batch --armor --export "ext@example.com" \
+    | gpg --batch --import 2>/dev/null
+
+  run keys sign --key "ext@example.com" "test"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"no secret key"* ]]
+}
+
 @test "sign fails for nonexistent file" {
   generate_test_key "Alice" "alice@example.com"
 
