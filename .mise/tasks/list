@@ -9,99 +9,61 @@ set -euo pipefail
 source "$MISE_CONFIG_ROOT/lib/common.sh"
 require_gpg
 
-# Build a newline-separated list of fingerprints that have secret keys
-secret_fprs=""
-while IFS= read -r line; do
-  [ -z "$line" ] && continue
-  type=$(echo "$line" | awk -F: '{ print $1 }')
-  if [ "$type" = "sec" ]; then
-    get_fpr=true
-  elif [ "$type" = "fpr" ] && [ "${get_fpr:-}" = "true" ]; then
-    fpr=$(echo "$line" | awk -F: '{ print $10 }')
-    secret_fprs="$secret_fprs$fpr
-"
-    get_fpr=false
-  fi
-done < <(gpg --batch --with-colons --list-secret-keys 2>/dev/null || true)
+# Collect all primary key fingerprints
+fingerprints=$(gpg --batch --with-colons --list-keys 2>/dev/null \
+  | awk -F: '/^pub:/ { getfpr=1; next } /^fpr:/ && getfpr { print $10; getfpr=0 }')
 
-# Parse all public keys
 keys=()
-while IFS= read -r line; do
-  [ -z "$line" ] && continue
-  type=$(echo "$line" | awk -F: '{ print $1 }')
-  case "$type" in
-    pub)
-      created_ts=$(echo "$line" | awk -F: '{ print $6 }')
-      expires_ts=$(echo "$line" | awk -F: '{ print $7 }')
-      get_fpr=true
-      ;;
-    fpr)
-      if [ "${get_fpr:-}" = "true" ]; then
-        fingerprint=$(echo "$line" | awk -F: '{ print $10 }')
-        get_fpr=false
-      fi
-      ;;
-    uid)
-      uid=$(echo "$line" | awk -F: '{ print $10 }')
 
-      # Pattern filter
-      if [ -n "${usage_pattern:-}" ]; then
-        if ! echo "$uid" | grep -qi "$usage_pattern"; then
-          continue
-        fi
-      fi
+while IFS= read -r fpr; do
+  [ -z "$fpr" ] && continue
 
-      # Determine if secret key exists
-      has_secret=""
-      if echo "$secret_fprs" | grep -q "^${fingerprint}$"; then
-        has_secret="true"
-      fi
+  query_key_meta "$fpr"
+  query_key_uids "$fpr"
 
-      # Secret/public filter
-      if [ "${usage_secret:-}" = "true" ] && [ -z "$has_secret" ]; then
+  # Check secret key status once per primary key
+  has_secret=""
+  if has_secret_key "$fpr"; then
+    has_secret="true"
+  fi
+
+  # Secret/public filter (applied per key, before UID iteration)
+  if [ "${usage_secret:-}" = "true" ] && [ -z "$has_secret" ]; then
+    continue
+  fi
+  if [ "${usage_public:-}" = "true" ] && [ -n "$has_secret" ]; then
+    continue
+  fi
+
+  short_fpr="${fpr: -16}"
+  secret_display=""
+  [ -n "$has_secret" ] && secret_display="✓"
+
+  for uid in ${KEY_UIDS[@]+"${KEY_UIDS[@]}"}; do
+    # Pattern filter
+    if [ -n "${usage_pattern:-}" ]; then
+      if ! echo "$uid" | grep -qi "$usage_pattern"; then
         continue
       fi
-      if [ "${usage_public:-}" = "true" ] && [ -n "$has_secret" ]; then
-        continue
-      fi
+    fi
 
-      # Format dates
-      if [ -n "$created_ts" ] && [ "$created_ts" != "0" ]; then
-        created=$(date -r "$created_ts" "+%Y-%m-%d" 2>/dev/null || date -d "@$created_ts" "+%Y-%m-%d" 2>/dev/null || echo "unknown")
-      else
-        created="unknown"
-      fi
-      if [ -n "$expires_ts" ] && [ "$expires_ts" != "0" ]; then
-        expires=$(date -r "$expires_ts" "+%Y-%m-%d" 2>/dev/null || date -d "@$expires_ts" "+%Y-%m-%d" 2>/dev/null || echo "unknown")
-      else
-        expires="never"
-      fi
+    parse_uid "$uid"
 
-      short_fpr="${fingerprint: -16}"
-      secret_display=""
-      if [ -n "$has_secret" ]; then
-        secret_display="✓"
-      fi
-
-      # Parse UID into name and email
-      parse_uid "$uid"
-
-      if [ "${usage_json:-}" = "true" ]; then
-        is_secret=$( [ -n "$has_secret" ] && echo "true" || echo "false")
-        keys+=("$(jq -n \
-          --arg fpr "$fingerprint" \
-          --arg name "$PARSED_NAME" \
-          --arg email "$PARSED_EMAIL" \
-          --argjson secret "$is_secret" \
-          --arg created "$created" \
-          --arg expires "$expires" \
-          '{fingerprint: $fpr, name: $name, email: $email, secret: $secret, created: $created, expires: $expires}')")
-      else
-        keys+=("$short_fpr"$'\t'"$PARSED_NAME"$'\t'"$PARSED_EMAIL"$'\t'"$secret_display"$'\t'"$created"$'\t'"$expires")
-      fi
-      ;;
-  esac
-done < <(gpg --batch --with-colons --list-keys 2>/dev/null)
+    if [ "${usage_json:-}" = "true" ]; then
+      is_secret=$( [ -n "$has_secret" ] && echo "true" || echo "false")
+      keys+=("$(jq -n \
+        --arg fpr "$fpr" \
+        --arg name "$PARSED_NAME" \
+        --arg email "$PARSED_EMAIL" \
+        --argjson secret "$is_secret" \
+        --arg created "$KEY_CREATED" \
+        --arg expires "$KEY_EXPIRES" \
+        '{fingerprint: $fpr, name: $name, email: $email, secret: $secret, created: $created, expires: $expires}')")
+    else
+      keys+=("$short_fpr"$'\t'"$PARSED_NAME"$'\t'"$PARSED_EMAIL"$'\t'"$secret_display"$'\t'"$KEY_CREATED"$'\t'"$KEY_EXPIRES")
+    fi
+  done
+done <<< "$fingerprints"
 
 if [ "${usage_json:-}" = "true" ]; then
   if [ ${#keys[@]} -eq 0 ]; then

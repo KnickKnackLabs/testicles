@@ -10,23 +10,13 @@ require_gpg
 fingerprint=$(resolve_key "$usage_identifier")
 
 # Show what we're about to remove
-uid=$(gpg --batch --with-colons --list-keys "$fingerprint" 2>/dev/null \
-  | awk -F: '/^uid:/ { print $10; exit }')
-
-echo "Key: $uid"
+query_key_uids "$fingerprint"
+echo "Key: ${KEY_UIDS[0]:-unknown}"
 echo "Fingerprint: $(format_fingerprint "$fingerprint")"
 
-# Check if this key has a secret key
-has_secret=""
-if gpg --batch --with-colons --list-secret-keys "$fingerprint" &>/dev/null; then
-  secret_count=$(gpg --batch --with-colons --list-secret-keys "$fingerprint" 2>/dev/null \
-    | grep -c '^sec:' || true)
-  if [ "$secret_count" -gt 0 ]; then
-    has_secret="true"
-  fi
-fi
-
-if [ -n "$has_secret" ]; then
+secret=""
+if has_secret_key "$fingerprint"; then
+  secret="true"
   echo ""
   echo "WARNING: This key has a private key. Removing it will delete both the public and private key." >&2
 fi
@@ -39,7 +29,7 @@ if [ "${usage_yes:-}" != "true" ]; then
   fi
 fi
 
-if [ -n "$has_secret" ]; then
+if [ -n "$secret" ]; then
   gpg --batch --yes --delete-secret-and-public-key "$fingerprint" 2>/dev/null
 else
   gpg --batch --yes --delete-keys "$fingerprint" 2>/dev/null

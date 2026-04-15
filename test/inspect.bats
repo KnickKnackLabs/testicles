@@ -66,12 +66,14 @@ setup() {
   [[ "$output" != *"✓"* ]]
 }
 
-@test "inspect shows subkeys" {
+@test "inspect shows subkeys with algorithm and usage" {
   generate_test_key "Alice" "alice@example.com"
 
   run keys inspect "alice@example.com"
   [ "$status" -eq 0 ]
   [[ "$output" == *"Subkeys"* ]]
+  [[ "$output" == *"Algorithm"* ]]
+  [[ "$output" == *"Usage"* ]]
 }
 
 @test "inspect shows multiple UIDs" {
@@ -115,6 +117,7 @@ setup() {
 import sys, json
 data = json.load(sys.stdin)
 assert 'fingerprint' in data
+assert 'algorithm' in data
 assert 'uids' in data
 assert 'subkeys' in data
 assert 'certifications' in data
@@ -124,5 +127,9 @@ assert 'expires' in data
 assert isinstance(data['uids'], list)
 assert len(data['uids']) >= 1
 assert data['uids'][0]['email'] == 'alice@example.com'
+if data['subkeys']:
+    sk = data['subkeys'][0]
+    assert 'algorithm' in sk
+    assert 'usage' in sk
 "
 }
