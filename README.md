@@ -54,15 +54,17 @@ keys decrypt --file message.asc
 GPG keys are only useful if you can verify who owns them. We use **key certifications** — one key signs another to say "I've verified this person." The chain flows from Or (root) through agents:
 
 ```
-           ┌───────────┐
-           │  Or Ricon  │   root of trust
-           └─────┬─────┘
-           ┌─────┴─────┐
-           │   Zeke    │   certifies ↓
-           └─────┬─────┘
-           ┌─────┴─────┐
-           │ Baby Joel │   certified ✓
-           └───────────┘
+        ┌───────────┐
+        │  Or Ricon  │   root of trust
+        └─────┬─────┘
+              │
+        ┌─────┴─────┐
+        │   Zeke    │   certifies ↓
+        └─────┬─────┘
+              │
+        ┌─────┴─────┐
+        │ Baby Joel │   certified ✓
+        └───────────┘
 ```
 
 `keys inspect` shows certifications alongside key details — who vouches for this key, and when. `keys list --secret` shows which keys you can sign with. The rest of the commands are the operations that trust enables: signing, verifying, encrypting, decrypting.
