@@ -1,6 +1,59 @@
 #!/usr/bin/env bash
 #MISE description="Certify someone's key (key signing)"
+#USAGE flag "--key <key>" help="Key to sign with (defaults to default key)"
+#USAGE flag "--yes" help="Skip confirmation"
+#USAGE arg "<identifier>" help="Email, fingerprint, or key ID of the key to certify"
 set -euo pipefail
 
-echo "Error: not implemented" >&2
-exit 1
+source "$MISE_CONFIG_ROOT/lib/common.sh"
+require_gpg
+
+# Resolve the target key
+target_fpr=$(resolve_key "$usage_identifier")
+
+# Resolve the signing key (if specified)
+signing_args=()
+if [ -n "${usage_key:-}" ]; then
+  signing_fpr=$(resolve_key "$usage_key")
+  if ! has_secret_key "$signing_fpr"; then
+    query_key_uids "$signing_fpr"
+    echo "Error: no secret key for '${KEY_UIDS[0]:-$usage_key}' — you can only certify with keys you own" >&2
+    exit 1
+  fi
+  signing_args=(--local-user "$signing_fpr")
+fi
+
+# Show what we're about to certify
+query_key_uids "$target_fpr"
+echo "Certifying key:"
+echo "  Fingerprint: $(format_fingerprint "$target_fpr")"
+for uid in ${KEY_UIDS[@]+"${KEY_UIDS[@]}"}; do
+  echo "  UID: $uid"
+done
+
+# Confirm unless --yes
+if [ "${usage_yes:-}" != "true" ]; then
+  echo ""
+  if ! gum confirm "Certify this key?"; then
+    echo "Cancelled."
+    exit 0
+  fi
+fi
+
+# Sign the key
+gpg --batch --pinentry-mode loopback --passphrase '' \
+  "${signing_args[@]+"${signing_args[@]}"}" \
+  --quick-sign-key "$target_fpr" 2>/dev/null
+
+echo ""
+echo "✓ Certified $(format_fingerprint "$target_fpr")"
+
+# Show updated certifications
+query_key_certifications "$target_fpr"
+if [ ${#KEY_CERTS[@]} -gt 0 ]; then
+  echo ""
+  echo "Certifications:"
+  header="Signed by"$'\t'"Date"
+  output=$(printf '%s\n' "$header" "${KEY_CERTS[@]}")
+  echo "$output" | gum table -s $'\t' -p
+fi
