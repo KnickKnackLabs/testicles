@@ -4,11 +4,14 @@
 #USAGE flag "--clear" help="Produce cleartext signature (message remains readable)"
 #USAGE flag "--detach" help="Produce detached signature (.sig file)"
 #USAGE flag "--file <file>" help="File to sign (reads stdin if omitted)"
+#USAGE flag "--first" help="Auto-select first match when multiple keys match"
 #USAGE arg "[message]" help="Message to sign (alternative to stdin/file)"
 set -euo pipefail
 
 source "$MISE_CONFIG_ROOT/lib/common.sh"
 require_gpg
+
+[ "${usage_first:-}" = "true" ] && export RESOLVE_FIRST=true
 
 # Build gpg args
 gpg_args=(--batch --armor --pinentry-mode loopback --passphrase '')

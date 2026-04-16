@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 #MISE description="Show key details and certifications"
 #USAGE flag "--json" help="Output as JSON"
+#USAGE flag "--first" help="Auto-select first match when multiple keys match"
 #USAGE arg "<identifier>" help="Email, fingerprint, or key ID"
 set -euo pipefail
 
 source "$MISE_CONFIG_ROOT/lib/common.sh"
 require_gpg
+
+[ "${usage_first:-}" = "true" ] && export RESOLVE_FIRST=true
 
 fingerprint=$(resolve_key "$usage_identifier")
 

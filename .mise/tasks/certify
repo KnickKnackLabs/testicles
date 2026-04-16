@@ -2,11 +2,14 @@
 #MISE description="Certify someone's key (key signing)"
 #USAGE flag "--key <key>" help="Key to sign with (defaults to default key)"
 #USAGE flag "--yes" help="Skip confirmation"
+#USAGE flag "--first" help="Auto-select first match when multiple keys match"
 #USAGE arg "<identifier>" help="Email, fingerprint, or key ID of the key to certify"
 set -euo pipefail
 
 source "$MISE_CONFIG_ROOT/lib/common.sh"
 require_gpg
+
+[ "${usage_first:-}" = "true" ] && export RESOLVE_FIRST=true
 
 # Resolve the target key
 target_fpr=$(resolve_key "$usage_identifier")

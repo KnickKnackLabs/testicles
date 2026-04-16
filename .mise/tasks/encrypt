@@ -2,11 +2,14 @@
 #MISE description="Encrypt to recipient(s)"
 #USAGE flag "--to <to>" var=#true help="Recipient email, fingerprint, or key ID (repeatable)"
 #USAGE flag "--file <file>" help="File to encrypt (reads stdin if omitted)"
+#USAGE flag "--first" help="Auto-select first match when multiple keys match"
 #USAGE arg "[message]" help="Message to encrypt (alternative to stdin/file)"
 set -euo pipefail
 
 source "$MISE_CONFIG_ROOT/lib/common.sh"
 require_gpg
+
+[ "${usage_first:-}" = "true" ] && export RESOLVE_FIRST=true
 
 # Parse recipients from variadic --to flag
 RECIPIENTS=()

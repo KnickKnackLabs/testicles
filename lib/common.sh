@@ -115,6 +115,13 @@ format_created() {
 
 # Resolve a key identifier (email, fingerprint, or partial ID) to a fingerprint.
 # Returns the full fingerprint on stdout, exits 1 if not found or ambiguous.
+#
+# When multiple keys match:
+#   - If RESOLVE_FIRST=true, picks the first match
+#   - If a TTY is available, presents an interactive picker (gum choose)
+#   - Otherwise, errors with the list of matches
+#
+# Callers set RESOLVE_FIRST=true based on their --first flag.
 resolve_key() {
   local identifier="$1"
   local fingerprints
@@ -131,7 +138,36 @@ resolve_key() {
   count=$(echo "$fingerprints" | wc -l | tr -d ' ')
 
   if [ "$count" -gt 1 ]; then
-    echo "Error: multiple keys match '$identifier' — use a fingerprint to be specific:" >&2
+    # --first: pick the first match
+    if [ "${RESOLVE_FIRST:-}" = "true" ]; then
+      echo "$fingerprints" | head -1
+      return 0
+    fi
+
+    # Interactive: let the user pick via gum choose
+    if [ -t 0 ] && command -v gum &>/dev/null; then
+      local options=()
+      while IFS= read -r fpr; do
+        local uid
+        uid=$(gpg --batch --with-colons --list-keys "$fpr" 2>/dev/null \
+          | awk -F: '/^uid:/ { print $10; exit }')
+        options+=("$fpr  $uid")
+      done <<< "$fingerprints"
+
+      echo "Multiple keys match '$identifier':" >&2
+      local choice
+      choice=$(printf '%s\n' "${options[@]}" | gum choose)
+      if [ -z "$choice" ]; then
+        echo "Cancelled." >&2
+        return 1
+      fi
+      # Extract fingerprint (first field)
+      echo "$choice" | awk '{ print $1 }'
+      return 0
+    fi
+
+    # Non-interactive, no --first: error
+    echo "Error: multiple keys match '$identifier' — use a fingerprint or --first:" >&2
     while IFS= read -r fpr; do
       local uid
       uid=$(gpg --batch --with-colons --list-keys "$fpr" 2>/dev/null \

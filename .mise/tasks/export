@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 #MISE description="Export a public key (armored)"
+#USAGE flag "--first" help="Auto-select first match when multiple keys match"
 #USAGE arg "<identifier>" help="Email, fingerprint, or key ID"
 set -euo pipefail
 
 source "$MISE_CONFIG_ROOT/lib/common.sh"
 require_gpg
+
+[ "${usage_first:-}" = "true" ] && export RESOLVE_FIRST=true
 
 fingerprint=$(resolve_key "$usage_identifier")
 gpg --batch --armor --export "$fingerprint"
