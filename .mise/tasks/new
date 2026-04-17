@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+#MISE description="Generate a new GPG keypair"
+#USAGE flag "--algorithm <algo>" help="Key algorithm (default: ed25519)" default="ed25519"
+#USAGE flag "--expires <duration>" help="Expiry (e.g. 2y, 6m, never)" default="never"
+#USAGE flag "--no-passphrase" help="Generate key without a passphrase"
+#USAGE flag "--passphrase-file <path>" help="Read passphrase from file"
+#USAGE arg "<uid>" help="User ID, typically 'Name <email>'"
+set -euo pipefail
+
+source "$MISE_CONFIG_ROOT/lib/common.sh"
+require_gpg
+
+# Validate UID has an email or at least looks reasonable
+if [ -z "$usage_uid" ]; then
+  echo "Error: UID is required (e.g. 'Or Ricon <or@ricon.dev>')" >&2
+  exit 1
+fi
+
+# Resolve passphrase
+passphrase=""
+if [ "${usage_no_passphrase:-}" = "true" ]; then
+  passphrase=""
+elif [ -n "${TESTICLES_PASSPHRASE:-}" ]; then
+  passphrase="$TESTICLES_PASSPHRASE"
+elif [ -n "${usage_passphrase_file:-}" ]; then
+  if [ ! -f "$usage_passphrase_file" ]; then
+    echo "Error: passphrase file not found: $usage_passphrase_file" >&2
+    exit 1
+  fi
+  passphrase=$(cat "$usage_passphrase_file")
+elif [ -t 0 ] && command -v gum &>/dev/null; then
+  echo "Enter passphrase for new key (empty for unprotected):" >&2
+  passphrase=$(gum input --password --placeholder "Passphrase")
+  if [ -n "$passphrase" ]; then
+    local confirm
+    confirm=$(gum input --password --placeholder "Confirm passphrase")
+    if [ "$passphrase" != "$confirm" ]; then
+      echo "Error: passphrases do not match" >&2
+      exit 1
+    fi
+  fi
+fi
+
+# Generate the key
+gpg --batch --pinentry-mode loopback --passphrase "$passphrase" \
+  --quick-gen-key "$usage_uid" "$usage_algorithm" default "$usage_expires" 2>/dev/null
+
+# Find and display the new key
+fingerprint=$(gpg --batch --with-colons --list-keys "$usage_uid" 2>/dev/null \
+  | awk -F: '/^pub:/ { getfpr=1; next } /^fpr:/ && getfpr { print $10; getfpr=0; exit }')
+
+if [ -z "$fingerprint" ]; then
+  echo "Error: key generation appears to have failed" >&2
+  exit 1
+fi
+
+echo "✓ Generated key"
+echo "  UID:         $usage_uid"
+echo "  Fingerprint: $(format_fingerprint "$fingerprint")"
+echo "  Algorithm:   $usage_algorithm"
+echo "  Expires:     $usage_expires"
+if [ -z "$passphrase" ]; then
+  echo "  Passphrase:  (none — key is unprotected)"
+else
+  echo "  Passphrase:  set"
+fi
