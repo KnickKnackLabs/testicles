@@ -1,6 +1,27 @@
 #!/usr/bin/env bash
-#MISE description="Pull key from keyserver"
+#MISE description="Pull a key from a public keyserver"
+#USAGE flag "--keyserver <url>" help="Keyserver URL (defaults to KEYS_KEYSERVER)"
+#USAGE arg "<identifier>" help="Email, fingerprint, or key ID"
 set -euo pipefail
 
-echo "Error: not implemented" >&2
-exit 1
+source "$MISE_CONFIG_ROOT/lib/common.sh"
+require_gpg
+
+keyserver="${usage_keyserver:-$KEYS_KEYSERVER}"
+
+# Normalize: prepend hkps:// if no scheme (gpg's URL parser requires one)
+case "$keyserver" in
+  *://*) ;;
+  *) keyserver="hkps://$keyserver" ;;
+esac
+
+# If identifier looks like an email (contains @), use locate-external-keys
+# (keyservers typically index by email only for verified addresses).
+# Otherwise treat as fingerprint/key ID and use --recv-keys.
+if [[ "$usage_identifier" == *"@"* ]]; then
+  gpg --batch --keyserver "$keyserver" \
+    --auto-key-locate keyserver \
+    --locate-external-keys "$usage_identifier"
+else
+  gpg --batch --keyserver "$keyserver" --recv-keys "$usage_identifier"
+fi

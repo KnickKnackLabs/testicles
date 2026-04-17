@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+#MISE description="Upload a key to a public keyserver"
+#USAGE flag "--keyserver <url>" help="Keyserver URL (defaults to KEYS_KEYSERVER)"
+#USAGE flag "--first" help="Auto-select first match when multiple keys match"
+#USAGE flag "--yes" help="Skip confirmation"
+#USAGE arg "<identifier>" help="Email, fingerprint, or key ID of the key to publish"
+set -euo pipefail
+
+source "$MISE_CONFIG_ROOT/lib/common.sh"
+require_gpg
+
+[ "${usage_first:-}" = "true" ] && export RESOLVE_FIRST=true
+
+keyserver="${usage_keyserver:-$KEYS_KEYSERVER}"
+case "$keyserver" in
+  *://*) ;;
+  *) keyserver="hkps://$keyserver" ;;
+esac
+
+# Resolve to a concrete fingerprint (keyservers require it)
+fingerprint=$(resolve_key "$usage_identifier")
+
+# Show what we're about to publish
+query_key_uids "$fingerprint"
+echo "Publishing key to $keyserver:"
+echo "  Fingerprint: $(format_fingerprint "$fingerprint")"
+for uid in ${KEY_UIDS[@]+"${KEY_UIDS[@]}"}; do
+  echo "  UID: $uid"
+done
+
+if [ "${usage_yes:-}" != "true" ]; then
+  echo ""
+  if [ -t 0 ] && command -v gum &>/dev/null; then
+    if ! gum confirm "Publish this key?"; then
+      echo "Cancelled."
+      exit 0
+    fi
+  fi
+  # Non-interactive without --yes: proceed (keyserver uploads are public but
+  # not irreversible — keys can be revoked, and this is an explicit action).
+fi
+
+gpg --batch --keyserver "$keyserver" --send-keys "$fingerprint"
+
+echo ""
+echo "✓ Published $(format_fingerprint "$fingerprint")"
+echo ""
+echo "Note: keyservers that verify email (e.g. keys.openpgp.org) may not index"
+echo "the key by email until the UID owner clicks a confirmation link."

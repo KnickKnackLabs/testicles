@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-#MISE description="Push key to keyserver"
-set -euo pipefail
-
-echo "Error: not implemented" >&2
-exit 1

@@ -20,8 +20,8 @@ List, inspect, sign, verify, encrypt, decrypt — all through mise tasks.
 Built around a query API that makes GPG's colon output usable.
 
 ![lang: bash](https://img.shields.io/badge/lang-bash-4EAA25?style=flat&logo=gnubash&logoColor=white)
-[![tests: 114 passing](https://img.shields.io/badge/tests-114%20passing-brightgreen?style=flat)](test/)
-![commands: 11 implemented](https://img.shields.io/badge/commands-11%20implemented-blue?style=flat)
+[![tests: 124 passing](https://img.shields.io/badge/tests-124%20passing-brightgreen?style=flat)](test/)
+![commands: 13 implemented](https://img.shields.io/badge/commands-13%20implemented-blue?style=flat)
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat)
 
 </div>
@@ -85,6 +85,8 @@ The query API in `lib/common.sh` (15 functions) does the heavy lifting: `query_k
 
 `testicles export` — Export a key (armored)
 
+`testicles fetch` — Pull a key from a public keyserver
+
 `testicles import` — Import an armored public key
 
 `testicles inspect` — Show key details and certifications
@@ -93,15 +95,15 @@ The query API in `lib/common.sh` (15 functions) does the heavy lifting: `query_k
 
 `testicles new` — Generate a new GPG keypair
 
+`testicles publish` — Upload a key to a public keyserver
+
 `testicles remove` — Remove a key from the local keyring
 
 `testicles sign` — Sign content (file or message)
 
 `testicles verify` — Verify a content signature
 
-_Planned: broadcast, fetch — stubs exist, implementation coming._
-
-## Library architecture
+false## Library architecture
 
 ```
 testicles/
@@ -116,7 +118,7 @@ testicles/
 │   └── remove             # Key removal with confirmation
 └── test/
     ├── test_helper.bash   # Isolated GPG homedir per test
-    └── *.bats             # 13 suites, 114 tests
+    └── *.bats             # 14 suites, 124 tests
 ```
 
 Tests run against ephemeral GPG homedirs — each test gets a clean keyring with freshly generated keys. No interaction with the system keyring.
@@ -129,7 +131,7 @@ cd testicles && mise trust && mise install
 mise run test
 ```
 
-**114 tests** across 13 suites — [BATS](https://github.com/bats-core/bats-core) with isolated GPG homedirs per test case.
+**124 tests** across 14 suites — [BATS](https://github.com/bats-core/bats-core) with isolated GPG homedirs per test case.
 
 <br />
 
