@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-#MISE description="Export a public key (armored)"
+#MISE description="Export a key (armored)"
 #USAGE flag "--first" help="Auto-select first match when multiple keys match"
+#USAGE flag "--secret" help="Export the secret (private) key — DANGEROUS"
+#USAGE flag "--public" help="Export the public key (default)"
 #USAGE arg "<identifier>" help="Email, fingerprint, or key ID"
 set -euo pipefail
 
@@ -9,5 +11,28 @@ require_gpg
 
 [ "${usage_first:-}" = "true" ] && export RESOLVE_FIRST=true
 
+# Mutually exclusive
+if [ "${usage_secret:-}" = "true" ] && [ "${usage_public:-}" = "true" ]; then
+  echo "Error: --secret and --public are mutually exclusive" >&2
+  exit 1
+fi
+
 fingerprint=$(resolve_key "$usage_identifier")
-gpg --batch --armor --export "$fingerprint"
+
+if [ "${usage_secret:-}" = "true" ]; then
+  # Verify secret key exists before printing warnings
+  if ! has_secret_key "$fingerprint"; then
+    echo "Error: no secret key for $fingerprint" >&2
+    exit 1
+  fi
+
+  # Warn loudly on stderr — stdout is the armored key, which may be piped
+  echo "⚠  WARNING: exporting SECRET key — treat the output as highly sensitive." >&2
+  echo "⚠  Fingerprint: $(format_fingerprint "$fingerprint")" >&2
+  echo "" >&2
+
+  gpg --batch --armor --pinentry-mode loopback --passphrase '' \
+    --export-secret-keys "$fingerprint"
+else
+  gpg --batch --armor --export "$fingerprint"
+fi

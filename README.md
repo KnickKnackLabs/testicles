@@ -20,8 +20,8 @@ List, inspect, sign, verify, encrypt, decrypt — all through mise tasks.
 Built around a query API that makes GPG's colon output usable.
 
 ![lang: bash](https://img.shields.io/badge/lang-bash-4EAA25?style=flat&logo=gnubash&logoColor=white)
-[![tests: 77 passing](https://img.shields.io/badge/tests-77%20passing-brightgreen?style=flat)](test/)
-![commands: 9 implemented](https://img.shields.io/badge/commands-9%20implemented-blue?style=flat)
+[![tests: 95 passing](https://img.shields.io/badge/tests-95%20passing-brightgreen?style=flat)](test/)
+![commands: 10 implemented](https://img.shields.io/badge/commands-10%20implemented-blue?style=flat)
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat)
 
 </div>
@@ -77,11 +77,13 @@ The query API in `lib/common.sh` (14 functions) does the heavy lifting: `query_k
 
 ## Commands
 
+`testicles certify` — Certify someone's key (key signing)
+
 `testicles decrypt` — Decrypt with local key
 
 `testicles encrypt` — Encrypt to recipient(s)
 
-`testicles export` — Export a public key (armored)
+`testicles export` — Export a key (armored)
 
 `testicles import` — Import an armored public key
 
@@ -95,7 +97,7 @@ The query API in `lib/common.sh` (14 functions) does the heavy lifting: `query_k
 
 `testicles verify` — Verify a content signature
 
-_Planned: broadcast, certify, fetch — stubs exist, implementation coming._
+_Planned: broadcast, fetch — stubs exist, implementation coming._
 
 ## Library architecture
 
@@ -112,7 +114,7 @@ testicles/
 │   └── remove             # Key removal with confirmation
 └── test/
     ├── test_helper.bash   # Isolated GPG homedir per test
-    └── *.bats             # 9 suites, 77 tests
+    └── *.bats             # 11 suites, 95 tests
 ```
 
 Tests run against ephemeral GPG homedirs — each test gets a clean keyring with freshly generated keys. No interaction with the system keyring.
@@ -125,7 +127,7 @@ cd testicles && mise trust && mise install
 mise run test
 ```
 
-**77 tests** across 9 suites — [BATS](https://github.com/bats-core/bats-core) with isolated GPG homedirs per test case.
+**95 tests** across 11 suites — [BATS](https://github.com/bats-core/bats-core) with isolated GPG homedirs per test case.
 
 <br />
 
