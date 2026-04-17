@@ -20,7 +20,7 @@ List, inspect, sign, verify, encrypt, decrypt — all through mise tasks.
 Built around a query API that makes GPG's colon output usable.
 
 ![lang: bash](https://img.shields.io/badge/lang-bash-4EAA25?style=flat&logo=gnubash&logoColor=white)
-[![tests: 95 passing](https://img.shields.io/badge/tests-95%20passing-brightgreen?style=flat)](test/)
+[![tests: 101 passing](https://img.shields.io/badge/tests-101%20passing-brightgreen?style=flat)](test/)
 ![commands: 10 implemented](https://img.shields.io/badge/commands-10%20implemented-blue?style=flat)
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat)
 
@@ -73,7 +73,7 @@ GPG keys are only useful if you can verify who owns them. We use **key certifica
 
 Every command calls `gpg` under the hood. The value isn't abstraction — it's **usability**. GPG's native output is colon-delimited machine records. `keys` parses those into structured data (`--json`) or formatted tables (default), handles key resolution by email/fingerprint/ID, and provides early error detection (e.g., refusing to sign with a key you don't own the secret for).
 
-The query API in `lib/common.sh` (14 functions) does the heavy lifting: `query_key_meta`, `query_key_uids`, `query_key_subkeys`, `query_key_certifications`. Tasks are thin scripts that resolve args, call the query API, and format output.
+The query API in `lib/common.sh` (15 functions) does the heavy lifting: `query_key_meta`, `query_key_uids`, `query_key_subkeys`, `query_key_certifications`. Tasks are thin scripts that resolve args, call the query API, and format output.
 
 ## Commands
 
@@ -104,7 +104,7 @@ _Planned: broadcast, fetch — stubs exist, implementation coming._
 ```
 testicles/
 ├── lib/
-│   └── common.sh          # Query API + formatting (14 functions)
+│   └── common.sh          # Query API + formatting (15 functions)
 ├── .mise/tasks/
 │   ├── list               # Keyring listing with filters
 │   ├── inspect            # Full key details + certifications
@@ -114,7 +114,7 @@ testicles/
 │   └── remove             # Key removal with confirmation
 └── test/
     ├── test_helper.bash   # Isolated GPG homedir per test
-    └── *.bats             # 11 suites, 95 tests
+    └── *.bats             # 11 suites, 101 tests
 ```
 
 Tests run against ephemeral GPG homedirs — each test gets a clean keyring with freshly generated keys. No interaction with the system keyring.
@@ -127,7 +127,7 @@ cd testicles && mise trust && mise install
 mise run test
 ```
 
-**95 tests** across 11 suites — [BATS](https://github.com/bats-core/bats-core) with isolated GPG homedirs per test case.
+**101 tests** across 11 suites — [BATS](https://github.com/bats-core/bats-core) with isolated GPG homedirs per test case.
 
 <br />
 

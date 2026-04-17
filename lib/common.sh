@@ -110,6 +110,47 @@ format_created() {
 }
 
 # ---------------------------------------------------------------------------
+# Passphrase handling
+# ---------------------------------------------------------------------------
+
+# Build GPG args for passphrase input based on caller's flags/env.
+# Sets the global array PASSPHRASE_ARGS for the caller to splat into gpg args.
+#
+# Resolution order:
+#   1. TESTICLES_PASSPHRASE env var (used in tests and scripts)
+#   2. --passphrase-file <path> (usage_passphrase_file)
+#   3. TTY prompt via gum (if available and stdin is a terminal)
+#   4. Empty passphrase (default, works for passwordless keys)
+build_passphrase_args() {
+  PASSPHRASE_ARGS=(--pinentry-mode loopback)
+
+  if [ -n "${TESTICLES_PASSPHRASE:-}" ]; then
+    PASSPHRASE_ARGS+=(--passphrase "$TESTICLES_PASSPHRASE")
+    return 0
+  fi
+
+  if [ -n "${usage_passphrase_file:-}" ]; then
+    if [ ! -f "$usage_passphrase_file" ]; then
+      echo "Error: passphrase file not found: $usage_passphrase_file" >&2
+      return 1
+    fi
+    PASSPHRASE_ARGS+=(--passphrase-file "$usage_passphrase_file")
+    return 0
+  fi
+
+  # Interactive: prompt via gum
+  if [ -t 0 ] && command -v gum &>/dev/null; then
+    local pass
+    pass=$(gum input --password --placeholder "Passphrase (empty for unprotected keys)")
+    PASSPHRASE_ARGS+=(--passphrase "$pass")
+    return 0
+  fi
+
+  # Fallback: empty passphrase (works for keys without passwords)
+  PASSPHRASE_ARGS+=(--passphrase "")
+}
+
+# ---------------------------------------------------------------------------
 # Key resolution
 # ---------------------------------------------------------------------------
 

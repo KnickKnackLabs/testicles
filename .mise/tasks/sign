@@ -5,6 +5,7 @@
 #USAGE flag "--detach" help="Produce detached signature (.sig file)"
 #USAGE flag "--file <file>" help="File to sign (reads stdin if omitted)"
 #USAGE flag "--first" help="Auto-select first match when multiple keys match"
+#USAGE flag "--passphrase-file <path>" help="Read passphrase from file (for passphrase-protected keys)"
 #USAGE arg "[message]" help="Message to sign (alternative to stdin/file)"
 set -euo pipefail
 
@@ -14,7 +15,8 @@ require_gpg
 [ "${usage_first:-}" = "true" ] && export RESOLVE_FIRST=true
 
 # Build gpg args
-gpg_args=(--batch --armor --pinentry-mode loopback --passphrase '')
+build_passphrase_args
+gpg_args=(--batch --armor "${PASSPHRASE_ARGS[@]}")
 
 if [ -n "${usage_key:-}" ]; then
   fpr=$(resolve_key "$usage_key")

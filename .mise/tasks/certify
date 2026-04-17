@@ -3,6 +3,7 @@
 #USAGE flag "--key <key>" help="Key to sign with (defaults to default key)"
 #USAGE flag "--yes" help="Skip confirmation"
 #USAGE flag "--first" help="Auto-select first match when multiple keys match"
+#USAGE flag "--passphrase-file <path>" help="Read passphrase from file (for passphrase-protected signing keys)"
 #USAGE arg "<identifier>" help="Email, fingerprint, or key ID of the key to certify"
 set -euo pipefail
 
@@ -44,7 +45,8 @@ if [ "${usage_yes:-}" != "true" ]; then
 fi
 
 # Sign the key
-gpg --batch --pinentry-mode loopback --passphrase '' \
+build_passphrase_args
+gpg --batch "${PASSPHRASE_ARGS[@]}" \
   "${signing_args[@]+"${signing_args[@]}"}" \
   --quick-sign-key "$target_fpr" 2>/dev/null
 

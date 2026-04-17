@@ -25,6 +25,19 @@ generate_test_key() {
     | awk -F: '/^fpr:/ { print $10; exit }'
 }
 
+# Generate a test key with a passphrase
+generate_test_key_with_passphrase() {
+  local name="${1:-Test User}"
+  local email="${2:-test@example.com}"
+  local passphrase="${3:-correct-horse-battery-staple}"
+
+  gpg --batch --pinentry-mode loopback --passphrase "$passphrase" \
+    --quick-gen-key "$name <$email>" default default never 2>/dev/null
+
+  gpg --batch --with-colons --list-keys "$email" 2>/dev/null \
+    | awk -F: '/^fpr:/ { print $10; exit }'
+}
+
 # Export a test key to a file
 export_test_key() {
   local email="$1"

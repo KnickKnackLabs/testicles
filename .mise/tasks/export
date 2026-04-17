@@ -3,6 +3,7 @@
 #USAGE flag "--first" help="Auto-select first match when multiple keys match"
 #USAGE flag "--secret" help="Export the secret (private) key — DANGEROUS"
 #USAGE flag "--public" help="Export the public key (default)"
+#USAGE flag "--passphrase-file <path>" help="Read passphrase from file (for passphrase-protected secret keys)"
 #USAGE arg "<identifier>" help="Email, fingerprint, or key ID"
 set -euo pipefail
 
@@ -31,7 +32,8 @@ if [ "${usage_secret:-}" = "true" ]; then
   echo "⚠  Fingerprint: $(format_fingerprint "$fingerprint")" >&2
   echo "" >&2
 
-  gpg --batch --armor --pinentry-mode loopback --passphrase '' \
+  build_passphrase_args
+  gpg --batch --armor "${PASSPHRASE_ARGS[@]}" \
     --export-secret-keys "$fingerprint"
 else
   gpg --batch --armor --export "$fingerprint"

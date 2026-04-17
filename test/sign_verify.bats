@@ -150,3 +150,23 @@ setup() {
   [[ "$decrypted" == *"secret signed message"* ]]
   [[ "$decrypted" == *"BEGIN PGP SIGNED MESSAGE"* ]]
 }
+
+@test "sign with passphrase-protected key via TESTICLES_PASSPHRASE" {
+  generate_test_key_with_passphrase "Alice" "alice@example.com" "hunter2"
+
+  TESTICLES_PASSPHRASE="hunter2" run keys sign --clear "hello"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"BEGIN PGP SIGNED MESSAGE"* ]]
+}
+
+@test "sign with passphrase-protected key via --passphrase-file" {
+  generate_test_key_with_passphrase "Alice" "alice@example.com" "hunter2"
+
+  local pf="$BATS_TEST_TMPDIR/pass.txt"
+  echo -n "hunter2" > "$pf"
+
+  run keys sign --passphrase-file "$pf" --clear "hello"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"BEGIN PGP SIGNED MESSAGE"* ]]
+}
+

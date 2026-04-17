@@ -66,3 +66,39 @@ setup() {
   [ "$status" -ne 0 ]
   [[ "$output" == *"mutually exclusive"* ]]
 }
+
+# --- Passphrase-protected keys ---
+
+@test "export --secret on passphrase-protected key with TESTICLES_PASSPHRASE env var" {
+  generate_test_key_with_passphrase "Alice" "alice@example.com" "hunter2"
+
+  TESTICLES_PASSPHRASE="hunter2" run keys export --secret "alice@example.com"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"BEGIN PGP PRIVATE KEY BLOCK"* ]]
+}
+
+@test "export --secret on passphrase-protected key with --passphrase-file" {
+  generate_test_key_with_passphrase "Alice" "alice@example.com" "hunter2"
+
+  local pf="$BATS_TEST_TMPDIR/pass.txt"
+  echo -n "hunter2" > "$pf"
+
+  run keys export --secret --passphrase-file "$pf" "alice@example.com"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"BEGIN PGP PRIVATE KEY BLOCK"* ]]
+}
+
+@test "export --secret fails with wrong passphrase" {
+  generate_test_key_with_passphrase "Alice" "alice@example.com" "hunter2"
+
+  TESTICLES_PASSPHRASE="wrong" run keys export --secret "alice@example.com"
+  [ "$status" -ne 0 ]
+}
+
+@test "export --secret --passphrase-file fails if file missing" {
+  generate_test_key "Alice" "alice@example.com"
+
+  run keys export --secret --passphrase-file "/nonexistent/file" "alice@example.com"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"passphrase file not found"* ]]
+}
