@@ -8,6 +8,7 @@ usage = "latest"
 bats = "1.13.0"
 gum = "latest"
 jq = "latest"
+shellcheck = "0.11.0"
 
 [_.codebase]
 lint = ["mise-settings", "gum-table"]

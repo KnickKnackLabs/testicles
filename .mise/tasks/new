@@ -32,7 +32,6 @@ elif [ -t 0 ] && command -v gum &>/dev/null; then
   echo "Enter passphrase for new key (empty for unprotected):" >&2
   passphrase=$(gum input --password --placeholder "Passphrase")
   if [ -n "$passphrase" ]; then
-    local confirm
     confirm=$(gum input --password --placeholder "Confirm passphrase")
     if [ "$passphrase" != "$confirm" ]; then
       echo "Error: passphrases do not match" >&2
