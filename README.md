@@ -20,7 +20,7 @@ List, inspect, sign, verify, encrypt, decrypt — all through mise tasks.
 Built around a query API that makes GPG's colon output usable.
 
 ![lang: bash](https://img.shields.io/badge/lang-bash-4EAA25?style=flat&logo=gnubash&logoColor=white)
-[![tests: 107 passing](https://img.shields.io/badge/tests-107%20passing-brightgreen?style=flat)](test/)
+[![tests: 114 passing](https://img.shields.io/badge/tests-114%20passing-brightgreen?style=flat)](test/)
 ![commands: 11 implemented](https://img.shields.io/badge/commands-11%20implemented-blue?style=flat)
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat)
 
@@ -116,7 +116,7 @@ testicles/
 │   └── remove             # Key removal with confirmation
 └── test/
     ├── test_helper.bash   # Isolated GPG homedir per test
-    └── *.bats             # 12 suites, 107 tests
+    └── *.bats             # 13 suites, 114 tests
 ```
 
 Tests run against ephemeral GPG homedirs — each test gets a clean keyring with freshly generated keys. No interaction with the system keyring.
@@ -129,7 +129,7 @@ cd testicles && mise trust && mise install
 mise run test
 ```
 
-**107 tests** across 12 suites — [BATS](https://github.com/bats-core/bats-core) with isolated GPG homedirs per test case.
+**114 tests** across 13 suites — [BATS](https://github.com/bats-core/bats-core) with isolated GPG homedirs per test case.
 
 <br />
 

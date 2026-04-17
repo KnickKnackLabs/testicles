@@ -86,6 +86,48 @@ setup() {
   [[ "$output" == *"No keys found"* ]]
 }
 
+@test "list pattern matches full fingerprint" {
+  local fpr
+  fpr=$(generate_test_key "Alice" "alice@example.com")
+
+  run keys list "$fpr"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"alice@example.com"* ]]
+}
+
+@test "list pattern matches short key ID (last 16 chars)" {
+  local fpr
+  fpr=$(generate_test_key "Alice" "alice@example.com")
+  local short="${fpr: -16}"
+
+  run keys list "$short"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"alice@example.com"* ]]
+}
+
+@test "list pattern matches partial fingerprint" {
+  local fpr
+  fpr=$(generate_test_key "Alice" "alice@example.com")
+  # Middle slice of the fingerprint
+  local middle="${fpr:16:8}"
+
+  run keys list "$middle"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"alice@example.com"* ]]
+}
+
+@test "list fingerprint match is case-insensitive" {
+  local fpr
+  fpr=$(generate_test_key "Alice" "alice@example.com")
+  # Convert fingerprint to lowercase
+  local lower
+  lower=$(echo "$fpr" | tr '[:upper:]' '[:lower:]')
+
+  run keys list "$lower"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"alice@example.com"* ]]
+}
+
 # -- Secret/Public filters --
 
 @test "list --secret shows only keys with private key" {
