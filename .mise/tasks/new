@@ -41,9 +41,14 @@ elif [ -t 0 ] && command -v gum &>/dev/null; then
   fi
 fi
 
-# Generate the key
-gpg --batch --pinentry-mode loopback --passphrase "$passphrase" \
-  --quick-gen-key "$usage_uid" "$usage_algorithm" default "$usage_expires" 2>/dev/null
+# Generate the key — capture gpg output so we can surface real errors
+gen_output=$(gpg --batch --pinentry-mode loopback --passphrase "$passphrase" \
+  --quick-gen-key "$usage_uid" "$usage_algorithm" default "$usage_expires" 2>&1) || {
+  # Strip 'gpg:' prefix for cleaner error messages
+  echo "Error: key generation failed" >&2
+  echo "$gen_output" | grep -v '^gpg: keybox' | sed 's/^gpg: /  /' >&2
+  exit 1
+}
 
 # Find and display the new key
 fingerprint=$(gpg --batch --with-colons --list-keys "$usage_uid" 2>/dev/null \

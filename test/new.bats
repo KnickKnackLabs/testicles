@@ -62,3 +62,14 @@ setup() {
   [ "$status" -ne 0 ]
   [[ "$output" == *"passphrase file not found"* ]]
 }
+
+@test "new fails with helpful message when key already exists" {
+  run keys new --no-passphrase "Frank <frank@example.com>"
+  [ "$status" -eq 0 ]
+
+  # Second attempt should fail with a meaningful error
+  run keys new --no-passphrase "Frank <frank@example.com>"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"key generation failed"* ]]
+  [[ "$output" == *"already exists"* ]]
+}
