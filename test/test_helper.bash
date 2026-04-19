@@ -13,6 +13,27 @@ setup_gpg_home() {
   chmod 700 "$GNUPGHOME"
 }
 
+# Kill any gpg-agent/dirmngr spawned into this test's GNUPGHOME.
+#
+# gpg auto-spawns a gpg-agent daemon in $GNUPGHOME on first use. If we let BATS
+# wipe $BATS_TEST_TMPDIR with the agent still running, we leak a zombie daemon
+# (socket gone, process still alive) for every test. Under load that exhausts
+# fds/process limits and subsequent runs hang waiting for an agent to bind a
+# socket — the "hangs partway through" flakiness.
+#
+# Called automatically by BATS after each test that loads this helper.
+# Individual .bats files can override teardown() if they need custom behavior,
+# but should call teardown_gpg_home themselves in that case.
+teardown_gpg_home() {
+  if [ -n "${GNUPGHOME:-}" ] && [ -d "$GNUPGHOME" ]; then
+    gpgconf --homedir "$GNUPGHOME" --kill all 2>/dev/null || true
+  fi
+}
+
+teardown() {
+  teardown_gpg_home
+}
+
 # Generate a test key (no passphrase, no interaction)
 generate_test_key() {
   local name="${1:-Test User}"
