@@ -79,8 +79,7 @@ setup() {
 
   # Create Bob in a separate keyring and encrypt to him
   local bob_home
-  bob_home=$(mktemp -d)
-  chmod 700 "$bob_home"
+  bob_home=$(setup_extra_gpg_home)
   GNUPGHOME="$bob_home" gpg --batch --pinentry-mode loopback --passphrase '' \
     --quick-gen-key "Bob <bob@example.com>" default default never 2>/dev/null
   ciphertext=$(echo "for bob only" | GNUPGHOME="$bob_home" gpg --batch --armor --trust-model always \
