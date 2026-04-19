@@ -30,8 +30,43 @@ teardown_gpg_home() {
   fi
 }
 
+# Create an additional isolated GPG home and register it for agent+dir cleanup
+# in teardown. Prints the path on stdout. Use this instead of a bare
+# `mktemp -d` when a test needs a second keyring — otherwise the gpg-agent
+# spawned there leaks (homedir isn't under $BATS_TEST_TMPDIR, so BATS doesn't
+# wipe it, and nothing kills the daemon).
+#
+# Uses mktemp rather than a path under $BATS_TEST_TMPDIR because the BATS
+# tmpdir is already ~70 chars deep, and gpg-agent's AF_UNIX socket path is
+# capped at 104 chars on macOS — anything longer makes gpg-agent fail to bind.
+#
+# Tracks registered homes in a file (not a shell var) because callers use this
+# via `home=$(setup_extra_gpg_home)`, which runs in a subshell — a var set
+# there wouldn't survive back to teardown().
+setup_extra_gpg_home() {
+  local home
+  home=$(mktemp -d)
+  chmod 700 "$home"
+  echo "$home" >> "$BATS_TEST_TMPDIR/.extra-gpg-homes"
+  echo "$home"
+}
+
+# Kill gpg-agents and remove every home registered via setup_extra_gpg_home.
+teardown_extra_gpg_homes() {
+  local registry="$BATS_TEST_TMPDIR/.extra-gpg-homes"
+  [ -f "$registry" ] || return 0
+  local h
+  while IFS= read -r h; do
+    [ -n "$h" ] || continue
+    gpgconf --homedir "$h" --kill all 2>/dev/null || true
+    rm -rf "$h" 2>/dev/null || true
+  done < "$registry"
+  rm -f "$registry"
+}
+
 teardown() {
   teardown_gpg_home
+  teardown_extra_gpg_homes
 }
 
 # Generate a test key (no passphrase, no interaction)

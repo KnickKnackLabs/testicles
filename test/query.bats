@@ -127,8 +127,7 @@ setup() {
 
 @test "has_secret_key returns false for public-only key" {
   local other_home
-  other_home=$(mktemp -d)
-  chmod 700 "$other_home"
+  other_home=$(setup_extra_gpg_home)
   GNUPGHOME="$other_home" gpg --batch --pinentry-mode loopback --passphrase '' \
     --quick-gen-key "External <ext@example.com>" default default never 2>/dev/null
   GNUPGHOME="$other_home" gpg --batch --armor --export "ext@example.com" \

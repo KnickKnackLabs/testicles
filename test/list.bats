@@ -134,8 +134,7 @@ setup() {
   generate_test_key "Alice" "alice@example.com"
   # Import a public-only key
   local other_home
-  other_home=$(mktemp -d)
-  chmod 700 "$other_home"
+  other_home=$(setup_extra_gpg_home)
   GNUPGHOME="$other_home" gpg --batch --pinentry-mode loopback --passphrase '' \
     --quick-gen-key "External <ext@example.com>" default default never 2>/dev/null
   GNUPGHOME="$other_home" gpg --batch --armor --export "ext@example.com" \
@@ -150,8 +149,7 @@ setup() {
 @test "list --public shows only keys without private key" {
   generate_test_key "Alice" "alice@example.com"
   local other_home
-  other_home=$(mktemp -d)
-  chmod 700 "$other_home"
+  other_home=$(setup_extra_gpg_home)
   GNUPGHOME="$other_home" gpg --batch --pinentry-mode loopback --passphrase '' \
     --quick-gen-key "External <ext@example.com>" default default never 2>/dev/null
   GNUPGHOME="$other_home" gpg --batch --armor --export "ext@example.com" \

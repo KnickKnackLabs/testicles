@@ -47,3 +47,25 @@ wait_gone() {
   wait_gone "$pid"
 }
 
+@test "setup_extra_gpg_home registers the home for teardown (survives subshell)" {
+  # Typical caller pattern: extra=$(setup_extra_gpg_home). The assignment
+  # happens in a subshell, so variable-based registration would be lost —
+  # test_helper uses a file-backed registry to survive this.
+  local extra
+  extra=$(setup_extra_gpg_home)
+  [ -d "$extra" ]
+  grep -qxF "$extra" "$BATS_TEST_TMPDIR/.extra-gpg-homes"
+
+  # Spawn an agent in the extra home.
+  GNUPGHOME="$extra" gpg --batch --pinentry-mode loopback --passphrase '' \
+    --quick-gen-key "Extra <extra@example.com>" default default never 2>/dev/null
+  pid=$(agent_pid_for "$extra")
+  [ -n "$pid" ]
+
+  teardown_extra_gpg_homes
+
+  wait_gone "$pid"
+  [ ! -d "$extra" ]
+  [ ! -f "$BATS_TEST_TMPDIR/.extra-gpg-homes" ]
+}
+
