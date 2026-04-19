@@ -10,6 +10,7 @@ setup() {
 
 # Find the gpg-agent PID for a given GNUPGHOME, or empty if none.
 agent_pid_for() {
+  [ -n "${1:-}" ] || return 1
   pgrep -f "gpg-agent --homedir $1" | head -n1
 }
 
@@ -42,6 +43,8 @@ wait_gone() {
   [ -n "$pid" ]
   kill -0 "$pid"
 
+  # teardown() will call teardown_gpg_home again after this — harmless
+  # (gpgconf --kill on a dead agent is a no-op).
   teardown_gpg_home
 
   wait_gone "$pid"

@@ -21,9 +21,16 @@ setup_gpg_home() {
 # fds/process limits and subsequent runs hang waiting for an agent to bind a
 # socket — the "hangs partway through" flakiness.
 #
-# Called automatically by BATS after each test that loads this helper.
-# Individual .bats files can override teardown() if they need custom behavior,
-# but should call teardown_gpg_home themselves in that case.
+# ⚠️  If you define your own teardown() in a .bats file, BATS will call YOUR
+# version INSTEAD of the one below — silently skipping agent cleanup and
+# re-introducing the process leak this PR fixed. If you need a custom
+# teardown, call teardown_gpg_home and teardown_extra_gpg_homes from it:
+#
+#   teardown() {
+#     ...your custom logic...
+#     teardown_gpg_home
+#     teardown_extra_gpg_homes
+#   }
 teardown_gpg_home() {
   if [ -n "${GNUPGHOME:-}" ] && [ -d "$GNUPGHOME" ]; then
     gpgconf --homedir "$GNUPGHOME" --kill all 2>/dev/null || true
@@ -44,6 +51,10 @@ teardown_gpg_home() {
 # via `home=$(setup_extra_gpg_home)`, which runs in a subshell — a var set
 # there wouldn't survive back to teardown().
 setup_extra_gpg_home() {
+  [ -n "${BATS_TEST_TMPDIR:-}" ] || {
+    echo "setup_extra_gpg_home: BATS_TEST_TMPDIR unset — called outside a BATS test?" >&2
+    return 1
+  }
   local home
   home=$(mktemp -d)
   chmod 700 "$home"
